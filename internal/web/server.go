@@ -77,17 +77,29 @@ func (s *Server) Stop(ctx context.Context) error {
 
 func (s *Server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Static SPA + assets must stay unauthenticated.
+		// Chrome often fails to load ES modules when Basic Auth wraps the HTML shell
+		// (blank page, empty #root, no console errors).
+		path := r.URL.Path
+		if !strings.HasPrefix(path, "/api/") || path == "/api/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		cfg := s.getCfg()
-		user := cfg.Web.Username
-		pass := cfg.Web.Password
+		user := strings.TrimSpace(cfg.Web.Username)
+		pass := strings.TrimSpace(cfg.Web.Password)
 		if user == "" && pass == "" {
 			next.ServeHTTP(w, r)
 			return
 		}
 		u, p, ok := r.BasicAuth()
 		if !ok || u != user || p != pass {
-			w.Header().Set("WWW-Authenticate", `Basic realm="keenetic-mtproto"`)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			// Do not send WWW-Authenticate: that triggers the browser native dialog
+			// and reintroduces the broken Basic-Auth + module loading path.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "unauthorized"})
 			return
 		}
 		next.ServeHTTP(w, r)

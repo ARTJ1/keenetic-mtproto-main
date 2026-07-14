@@ -2,11 +2,25 @@
   "title": "keenetic-mtproto",
   "subtitle": "MTProto-прокси Telegram для Keenetic",
   "save": "Сохранить",
+  "login": "Войти",
+  "logout": "Выйти",
   "saving": "Сохранение…",
   "saved": "Сохранено",
   "error": "Ошибка",
   "refresh": "Обновить",
   "lang": "Язык",
+  "online": "Прокси включён",
+  "offline": "Прокси выключен",
+  "clients": "клиентов",
+  "share": {
+    "title": "Подключение в Telegram",
+    "hint": "Публичный хост / IP для QR и ссылок",
+    "scan": "Сканируй камерой Telegram",
+    "copyLink": "Копировать tg://",
+    "copySecret": "Копировать secret",
+    "openTelegram": "Открыть в Telegram",
+    "noSecret": "Сначала сгенерируй secret"
+  },
   "proxy": {
     "title": "Прокси",
     "enabled": "Включить прокси",
@@ -20,17 +34,17 @@
     "cfWorker": "Домен Cloudflare Worker",
     "cfProxy": "Общий пул CF proxy",
     "dcRelay": "DC relay (host:port)",
-    "test": "Проверить соединение",
+    "test": "Проверить upstream",
     "testing": "Проверка…",
-    "refreshDcs": "Обновить список DC"
+    "refreshDcs": "Обновить DC"
   },
   "web": {
-    "title": "Веб-интерфейс",
+    "title": "Доступ к панели",
     "port": "Порт UI",
     "bind": "Адрес bind",
     "username": "Логин",
     "password": "Пароль",
-    "note": "Смените пароль после первого входа. UI лучше оставить только в LAN."
+    "note": "API защищён этим логином (без всплывающего Basic Auth в браузере). Пустые поля — открытая панель в LAN."
   },
   "secrets": {
     "title": "Секреты",
@@ -39,21 +53,21 @@
     "enabled": "Вкл",
     "add": "Добавить секрет",
     "generate": "Сгенерировать",
-    "copyLink": "Копировать tg:// ссылку",
+    "copyLink": "Копировать ссылку",
     "copied": "Скопировано",
-    "serverHint": "Публичный хост / IP для ссылок",
-    "remove": "Удалить"
+    "remove": "Удалить",
+    "useForQr": "Показать QR"
   },
   "sessions": {
-    "title": "Активные сессии",
+    "title": "Живые сессии",
     "client": "Клиент",
     "dest": "Назначение",
     "secret": "Секрет",
     "connected": "Подключён",
-    "empty": "Нет активных клиентов"
+    "empty": "Пока нет активных клиентов"
   },
   "nfqws": {
     "title": "Совместимо с nfqws2",
-    "body": "Прокси только слушает TCP-порт. Не использует NFQUEUE, iptables и marks — не конфликтует с nfqws2-keenetic."
+    "body": "Только listen-прокси: без NFQUEUE, iptables и marks — спокойно рядом с nfqws2-keenetic."
   }
 }

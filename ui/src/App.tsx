@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import QRCode from "qrcode";
 import {
   api,
+  AuthError,
   FileConfig,
   Session,
   Secret,
+  clearAuth,
+  setAuth,
   tgProxyLink,
 } from "./api";
 
 function newSecret(): Secret {
-  return {
-    id: crypto.randomUUID(),
-    name: "",
-    secret: "",
-    enabled: true,
-  };
+  return { id: crypto.randomUUID(), name: "", secret: "", enabled: true };
+}
+
+function isAuthError(e: unknown): boolean {
+  return e instanceof AuthError || (e as Error)?.name === "AuthError";
 }
 
 export default function App() {
@@ -27,10 +30,17 @@ export default function App() {
     text: "",
   });
   const [busy, setBusy] = useState(false);
+  const [needLogin, setNeedLogin] = useState(false);
+  const [loginUser, setLoginUser] = useState("admin");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [qrIdx, setQrIdx] = useState(0);
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   const load = useCallback(async () => {
     const res = await api.getConfig();
     setCfg(res.config);
+    setNeedLogin(false);
     try {
       setSessions(await api.sessions());
     } catch {
@@ -39,14 +49,70 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    load().catch((e) => setStatus({ kind: "err", text: String(e.message || e) }));
-    const id = setInterval(() => {
-      api.sessions().then(setSessions).catch(() => undefined);
+    load().catch((e) => {
+      if (isAuthError(e)) {
+        setNeedLogin(true);
+        setCfg(null);
+        return;
+      }
+      setStatus({ kind: "err", text: String((e as Error).message || e) });
+    });
+    const id = window.setInterval(() => {
+      api
+        .sessions()
+        .then(setSessions)
+        .catch((e) => {
+          if (isAuthError(e)) setNeedLogin(true);
+        });
     }, 5000);
     return () => clearInterval(id);
   }, [load]);
 
+  const activeSecrets = useMemo(
+    () => (cfg?.proxy.secrets || []).filter((s) => s.enabled && s.secret.trim()),
+    [cfg]
+  );
+
   const sharePort = cfg?.proxy.port ?? 8443;
+  const qrSecret = activeSecrets[Math.min(qrIdx, Math.max(activeSecrets.length - 1, 0))];
+  const shareLink = qrSecret
+    ? tgProxyLink(serverHost || location.hostname, sharePort, qrSecret.secret)
+    : "";
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!shareLink) {
+      setQrDataUrl("");
+      return;
+    }
+    QRCode.toDataURL(shareLink, {
+      width: 360,
+      margin: 1,
+      color: { dark: "#071018", light: "#ffffff" },
+    })
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shareLink]);
+
+  const doLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setAuth(loginUser, loginPass);
+    try {
+      await load();
+    } catch (err: any) {
+      clearAuth();
+      setLoginError(err?.message || t("error"));
+      setNeedLogin(true);
+    }
+  };
 
   const setLang = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -62,6 +128,7 @@ export default function App() {
       setStatus({ kind: "ok", text: t("saved") });
       await load();
     } catch (e: any) {
+      if (isAuthError(e)) setNeedLogin(true);
       setStatus({ kind: "err", text: e.message || t("error") });
     } finally {
       setBusy(false);
@@ -74,13 +141,14 @@ export default function App() {
     const res = await api.generateSecret(fake);
     const secrets = [...cfg.proxy.secrets];
     secrets[idx] = { ...secrets[idx], secret: res.secret };
+    if (!secrets[idx].name) secrets[idx].name = `secret-${idx + 1}`;
     setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
+    setStatus({ kind: "ok", text: "OK" });
   };
 
-  const copyLink = async (secret: string) => {
-    const link = tgProxyLink(serverHost, sharePort, secret);
-    await navigator.clipboard.writeText(link);
-    setStatus({ kind: "ok", text: t("secrets.copied") });
+  const copyText = async (text: string, okMsg: string) => {
+    await navigator.clipboard.writeText(text);
+    setStatus({ kind: "ok", text: okMsg });
   };
 
   const testConn = async () => {
@@ -106,15 +174,55 @@ export default function App() {
     }
   };
 
-  const probeSummary = useMemo(() => status, [status]);
+  if (needLogin) {
+    return (
+      <div className="app">
+        <div className="brand" style={{ marginBottom: 24 }}>
+          <h1>{t("title")}</h1>
+          <p>{t("subtitle")}</p>
+        </div>
+        <section className="card" style={{ maxWidth: 420 }}>
+          <h2>{t("login")}</h2>
+          <form onSubmit={doLogin} className="grid" style={{ gridTemplateColumns: "1fr" }}>
+            <label>
+              {t("web.username")}
+              <input
+                autoFocus
+                value={loginUser}
+                onChange={(e) => setLoginUser(e.target.value)}
+                autoComplete="username"
+              />
+            </label>
+            <label>
+              {t("web.password")}
+              <input
+                type="password"
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            {loginError ? <p className="toast err">{loginError}</p> : null}
+            <button className="primary" type="submit">
+              {t("login")}
+            </button>
+          </form>
+        </section>
+      </div>
+    );
+  }
 
   if (!cfg) {
-    return <div className="app"><p className="status">{t("refresh")}…</p></div>;
+    return (
+      <div className="app">
+        <p className="toast">{t("refresh")}…</p>
+      </div>
+    );
   }
 
   return (
     <div className="app">
-      <header>
+      <div className="topbar">
         <div className="brand">
           <h1>{t("title")}</h1>
           <p>{t("subtitle")}</p>
@@ -128,15 +236,112 @@ export default function App() {
             <option value="ru">RU</option>
             <option value="en">EN</option>
           </select>
-          <button className="ghost" onClick={() => load()}>{t("refresh")}</button>
-          <button className="primary" disabled={busy} onClick={save}>{t("save")}</button>
+          <button className="ghost" onClick={() => load()}>
+            {t("refresh")}
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              clearAuth();
+              setNeedLogin(true);
+              setCfg(null);
+            }}
+          >
+            {t("logout")}
+          </button>
+          <button className="primary" disabled={busy} onClick={save}>
+            {t("save")}
+          </button>
         </div>
-      </header>
+      </div>
 
-      <section className="card">
-        <h2>{t("nfqws.title")}</h2>
-        <p className="note">{t("nfqws.body")}</p>
-      </section>
+      <div className="hero">
+        <section className="card status-hero">
+          <div className="status-row">
+            <span className={`dot ${cfg.proxy.enabled ? "on" : ""}`} />
+            <div className="status-title">{cfg.proxy.enabled ? t("online") : t("offline")}</div>
+          </div>
+          <div className="kpi">
+            <div>
+              <strong>{sharePort}</strong>
+              {t("proxy.port")}
+            </div>
+            <div>
+              <strong>{sessions.length}</strong>
+              {t("clients")}
+            </div>
+            <div>
+              <strong>{activeSecrets.length}</strong>
+              secrets
+            </div>
+          </div>
+          <p className="note" style={{ marginTop: 14 }}>
+            {t("nfqws.body")}
+          </p>
+        </section>
+
+        <section className="card">
+          <h2>{t("share.title")}</h2>
+          <label>
+            {t("share.hint")}
+            <input value={serverHost} onChange={(e) => setServerHost(e.target.value)} placeholder="vpn.example.com" />
+          </label>
+          {activeSecrets.length > 1 ? (
+            <label style={{ marginTop: 10 }}>
+              Secret
+              <select value={String(Math.min(qrIdx, activeSecrets.length - 1))} onChange={(e) => setQrIdx(Number(e.target.value))}>
+                {activeSecrets.map((s, i) => (
+                  <option key={s.id || i} value={i}>
+                    {s.name || `secret-${i + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="qr-wrap" style={{ marginTop: 12 }}>
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="Telegram proxy QR" />
+            ) : (
+              <p className="empty">{t("share.noSecret")}</p>
+            )}
+          </div>
+          <p className="qr-caption">{t("share.scan")}</p>
+          {shareLink ? <div className="link-box">{shareLink}</div> : null}
+          <div className="actions">
+            <button
+              className="primary"
+              disabled={!shareLink}
+              onClick={() => copyText(shareLink, t("secrets.copied"))}
+            >
+              {t("share.copyLink")}
+            </button>
+            <button
+              className="ghost"
+              disabled={!qrSecret}
+              onClick={() => qrSecret && copyText(qrSecret.secret, t("secrets.copied"))}
+            >
+              {t("share.copySecret")}
+            </button>
+            <a
+              className="ghost"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                textDecoration: "none",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                color: "var(--text)",
+                pointerEvents: shareLink ? "auto" : "none",
+                opacity: shareLink ? 1 : 0.5,
+              }}
+              href={shareLink || undefined}
+            >
+              {t("share.openTelegram")}
+            </a>
+          </div>
+        </section>
+      </div>
 
       <section className="card">
         <h2>{t("proxy.title")}</h2>
@@ -144,9 +349,7 @@ export default function App() {
           <input
             type="checkbox"
             checked={cfg.proxy.enabled}
-            onChange={(e) =>
-              setCfg({ ...cfg, proxy: { ...cfg.proxy, enabled: e.target.checked } })
-            }
+            onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, enabled: e.target.checked } })}
           />
           {t("proxy.enabled")}
         </label>
@@ -156,36 +359,28 @@ export default function App() {
             <input
               type="number"
               value={cfg.proxy.port}
-              onChange={(e) =>
-                setCfg({ ...cfg, proxy: { ...cfg.proxy, port: Number(e.target.value) } })
-              }
+              onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, port: Number(e.target.value) } })}
             />
           </label>
           <label>
             {t("proxy.bind")}
             <input
               value={cfg.proxy.bind_address}
-              onChange={(e) =>
-                setCfg({ ...cfg, proxy: { ...cfg.proxy, bind_address: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, bind_address: e.target.value } })}
             />
           </label>
           <label>
             {t("proxy.fakeSni")}
             <input
               value={cfg.proxy.fake_sni}
-              onChange={(e) =>
-                setCfg({ ...cfg, proxy: { ...cfg.proxy, fake_sni: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, fake_sni: e.target.value } })}
             />
           </label>
           <label>
             {t("proxy.upstream")}
             <select
               value={cfg.proxy.upstream_mode || "auto"}
-              onChange={(e) =>
-                setCfg({ ...cfg, proxy: { ...cfg.proxy, upstream_mode: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, upstream_mode: e.target.value } })}
             >
               <option value="auto">{t("proxy.upstreamAuto")}</option>
               <option value="ws">{t("proxy.upstreamWs")}</option>
@@ -196,9 +391,7 @@ export default function App() {
             {t("proxy.cfWorker")}
             <input
               value={cfg.proxy.cfworker_domain}
-              onChange={(e) =>
-                setCfg({ ...cfg, proxy: { ...cfg.proxy, cfworker_domain: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, cfworker_domain: e.target.value } })}
             />
           </label>
           <label>
@@ -206,9 +399,7 @@ export default function App() {
             <input
               value={cfg.proxy.dc_relay}
               placeholder="host:443"
-              onChange={(e) =>
-                setCfg({ ...cfg, proxy: { ...cfg.proxy, dc_relay: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, dc_relay: e.target.value } })}
             />
           </label>
         </div>
@@ -216,14 +407,14 @@ export default function App() {
           <input
             type="checkbox"
             checked={cfg.proxy.cfproxy_enabled}
-            onChange={(e) =>
-              setCfg({ ...cfg, proxy: { ...cfg.proxy, cfproxy_enabled: e.target.checked } })
-            }
+            onChange={(e) => setCfg({ ...cfg, proxy: { ...cfg.proxy, cfproxy_enabled: e.target.checked } })}
           />
           {t("proxy.cfProxy")}
         </label>
         <div className="actions">
-          <button className="ghost" disabled={busy} onClick={testConn}>{t("proxy.test")}</button>
+          <button className="ghost" disabled={busy} onClick={testConn}>
+            {t("proxy.test")}
+          </button>
           <button
             className="ghost"
             disabled={busy}
@@ -243,68 +434,81 @@ export default function App() {
 
       <section className="card">
         <h2>{t("secrets.title")}</h2>
-        <label>
-          {t("secrets.serverHint")}
-          <input value={serverHost} onChange={(e) => setServerHost(e.target.value)} />
-        </label>
-        <div style={{ marginTop: 12 }}>
-          {cfg.proxy.secrets.map((s, idx) => (
-            <div className="secret" key={s.id || idx}>
-              <div className="grid">
-                <label>
-                  {t("secrets.name")}
-                  <input
-                    value={s.name}
-                    onChange={(e) => {
-                      const secrets = [...cfg.proxy.secrets];
-                      secrets[idx] = { ...s, name: e.target.value };
-                      setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
-                    }}
-                  />
-                </label>
-                <label className="check" style={{ marginTop: 22 }}>
-                  <input
-                    type="checkbox"
-                    checked={s.enabled}
-                    onChange={(e) => {
-                      const secrets = [...cfg.proxy.secrets];
-                      secrets[idx] = { ...s, enabled: e.target.checked };
-                      setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
-                    }}
-                  />
-                  {t("secrets.enabled")}
-                </label>
-              </div>
+        {cfg.proxy.secrets.map((s, idx) => (
+          <div className={`secret ${qrSecret?.id === s.id ? "active" : ""}`} key={s.id || idx}>
+            <div className="grid">
               <label>
-                {t("secrets.secret")}
+                {t("secrets.name")}
                 <input
-                  className="mono"
-                  value={s.secret}
+                  value={s.name}
                   onChange={(e) => {
                     const secrets = [...cfg.proxy.secrets];
-                    secrets[idx] = { ...s, secret: e.target.value };
+                    secrets[idx] = { ...s, name: e.target.value };
                     setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
                   }}
                 />
               </label>
-              <div className="row">
-                <button className="ghost" onClick={() => generate(idx)}>{t("secrets.generate")}</button>
-                <button className="ghost" disabled={!s.secret} onClick={() => copyLink(s.secret)}>
-                  {t("secrets.copyLink")}
-                </button>
-                <button
-                  className="danger"
-                  onClick={() => {
-                    const secrets = cfg.proxy.secrets.filter((_, i) => i !== idx);
+              <label className="check" style={{ marginTop: 22 }}>
+                <input
+                  type="checkbox"
+                  checked={s.enabled}
+                  onChange={(e) => {
+                    const secrets = [...cfg.proxy.secrets];
+                    secrets[idx] = { ...s, enabled: e.target.checked };
                     setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
                   }}
-                >
-                  {t("secrets.remove")}
-                </button>
-              </div>
+                />
+                {t("secrets.enabled")}
+              </label>
             </div>
-          ))}
-        </div>
+            <label>
+              {t("secrets.secret")}
+              <input
+                className="mono"
+                value={s.secret}
+                onChange={(e) => {
+                  const secrets = [...cfg.proxy.secrets];
+                  secrets[idx] = { ...s, secret: e.target.value };
+                  setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
+                }}
+              />
+            </label>
+            <div className="row">
+              <button className="ghost" onClick={() => generate(idx)}>
+                {t("secrets.generate")}
+              </button>
+              <button
+                className="ghost"
+                disabled={!s.secret}
+                onClick={() =>
+                  copyText(tgProxyLink(serverHost, sharePort, s.secret), t("secrets.copied"))
+                }
+              >
+                {t("secrets.copyLink")}
+              </button>
+              <button
+                className="primary"
+                disabled={!s.secret || !s.enabled}
+                onClick={() => {
+                  const enabled = (cfg.proxy.secrets || []).filter((x) => x.enabled && x.secret.trim());
+                  const pos = enabled.findIndex((x) => x.id === s.id);
+                  setQrIdx(pos >= 0 ? pos : 0);
+                }}
+              >
+                {t("secrets.useForQr")}
+              </button>
+              <button
+                className="danger"
+                onClick={() => {
+                  const secrets = cfg.proxy.secrets.filter((_, i) => i !== idx);
+                  setCfg({ ...cfg, proxy: { ...cfg.proxy, secrets } });
+                }}
+              >
+                {t("secrets.remove")}
+              </button>
+            </div>
+          </div>
+        ))}
         <button
           className="ghost"
           onClick={() =>
@@ -327,9 +531,7 @@ export default function App() {
             <input
               type="number"
               value={cfg.web.port}
-              onChange={(e) =>
-                setCfg({ ...cfg, web: { ...cfg.web, port: Number(e.target.value) } })
-              }
+              onChange={(e) => setCfg({ ...cfg, web: { ...cfg.web, port: Number(e.target.value) } })}
             />
           </label>
           <label>
@@ -343,9 +545,7 @@ export default function App() {
             {t("web.username")}
             <input
               value={cfg.web.username}
-              onChange={(e) =>
-                setCfg({ ...cfg, web: { ...cfg.web, username: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, web: { ...cfg.web, username: e.target.value } })}
             />
           </label>
           <label>
@@ -353,9 +553,7 @@ export default function App() {
             <input
               type="password"
               value={cfg.web.password}
-              onChange={(e) =>
-                setCfg({ ...cfg, web: { ...cfg.web, password: e.target.value } })
-              }
+              onChange={(e) => setCfg({ ...cfg, web: { ...cfg.web, password: e.target.value } })}
             />
           </label>
         </div>
@@ -378,7 +576,9 @@ export default function App() {
             <tbody>
               {sessions.map((s, i) => (
                 <tr key={`${s.id}-${s.client_ip}-${i}`}>
-                  <td className="mono">{s.client_ip}:{s.client_port}</td>
+                  <td className="mono">
+                    {s.client_ip}:{s.client_port}
+                  </td>
                   <td>{s.name || s.id}</td>
                   <td className="mono">{s.destination}</td>
                   <td>{new Date(s.connected_at).toLocaleString()}</td>
@@ -389,7 +589,7 @@ export default function App() {
         )}
       </section>
 
-      <p className={`status ${probeSummary.kind}`}>{probeSummary.text}</p>
+      <p className={`toast ${status.kind}`}>{status.text}</p>
     </div>
   );
 }
