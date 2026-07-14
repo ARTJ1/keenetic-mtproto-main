@@ -36,6 +36,10 @@ jobs:
             goarch: mipsle
             gomips: softfloat
             suffix: linux-mipsle_softfloat
+          - goos: linux
+            goarch: mips
+            gomips: softfloat
+            suffix: linux-mips_softfloat
     steps:
       - uses: actions/checkout@v4
 

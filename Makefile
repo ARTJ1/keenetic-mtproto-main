@@ -20,6 +20,7 @@ release-local:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/keenetic-mtproto-linux-arm64 ./cmd/keenetic-mtproto
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags="-s -w" -o dist/keenetic-mtproto-linux-armv7 ./cmd/keenetic-mtproto
 	CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -trimpath -ldflags="-s -w" -o dist/keenetic-mtproto-linux-mipsle_softfloat ./cmd/keenetic-mtproto
+	CGO_ENABLED=0 GOOS=linux GOARCH=mips GOMIPS=softfloat go build -trimpath -ldflags="-s -w" -o dist/keenetic-mtproto-linux-mips_softfloat ./cmd/keenetic-mtproto
 
 clean:
 	rm -rf bin dist

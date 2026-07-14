@@ -29,10 +29,12 @@ detect_arch() {
 	case "$m" in
 	aarch64|arm64) echo "linux-arm64" ;;
 	armv7l|armv7|arm) echo "linux-armv7" ;;
-	mips|mipsel)
-		# Keenetic MT7621 needs softfloat
-		echo "linux-mipsle_softfloat"
-		;;
+	# uname -m:
+	#   mips   = big-endian  (EcoNet EN75xx etc.)
+	#   mipsel = little-endian (MT7621 etc.)
+	# Both typically need softfloat on Keenetic/Entware.
+	mips) echo "linux-mips_softfloat" ;;
+	mipsel) echo "linux-mipsle_softfloat" ;;
 	x86_64|amd64) echo "linux-amd64" ;;
 	*)
 		die "Unsupported arch: $m"
