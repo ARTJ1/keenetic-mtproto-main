@@ -478,22 +478,43 @@ func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	repo := update.NormalizeRepo(s.getCfg().Update.Repo)
-	res, err := update.Apply(Version, repo, "")
+	res, err := update.Check(Version, repo)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, err.Error())
 		return
 	}
+	if !res.UpdateAvail || res.URL == "" {
+		writeErr(w, http.StatusBadRequest, "no update available for arch "+res.Arch)
+		return
+	}
+
+	// Prefer detached shell update (curl/wget like install.sh). Falls back to in-process.
+	if err := update.StartBackgroundApply(res, ""); err != nil {
+		log.Warnf("background update helper failed, trying in-process: %v", err)
+		if _, err2 := update.Apply(Version, repo, ""); err2 != nil {
+			writeErr(w, http.StatusBadGateway, err2.Error())
+			return
+		}
+		writeJSON(w, map[string]any{
+			"success": true,
+			"message": "binary updated; restarting service",
+			"check":   res,
+		})
+		go func() {
+			time.Sleep(800 * time.Millisecond)
+			if err := update.RestartService(); err != nil {
+				log.Errorf("service restart after update: %v", err)
+			}
+		}()
+		return
+	}
+
 	writeJSON(w, map[string]any{
 		"success": true,
-		"message": "binary updated; restarting service",
+		"message": "update started; service will restart shortly",
 		"check":   res,
+		"log":     "/opt/tmp/kmt-selfupdate.log",
 	})
-	go func() {
-		time.Sleep(800 * time.Millisecond)
-		if err := update.RestartService(); err != nil {
-			log.Errorf("service restart after update: %v", err)
-		}
-	}()
 }
 
 func sanitizeName(name string) string {
