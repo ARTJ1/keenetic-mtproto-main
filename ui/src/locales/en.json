@@ -1,49 +1,73 @@
 {
   "title": "keenetic-mtproto",
-  "subtitle": "Telegram MTProto for Keenetic",
+  "subtitle": "MTProto proxy for Keenetic + Telegram",
   "save": "Save",
   "login": "Sign in",
   "logout": "Log out",
   "saving": "Saving…",
-  "saved": "Saved",
+  "saved": "Settings saved",
   "error": "Error",
   "refresh": "Refresh",
-  "lang": "Language",
-  "online": "Proxy online",
-  "offline": "Proxy offline",
+  "close": "Close",
+  "copy": "Copy",
+  "copied": "Copied",
+  "online": "Proxy on",
+  "offline": "Proxy off",
   "clients": "clients",
+  "secretsCount": "secrets",
+  "port": "port",
+  "hint": {
+    "host": "Public IP or DDNS for links outside your Wi‑Fi. Not 192.168.x.x.",
+    "secret": "Fake-TLS secret for Telegram MTProto. Generate, then share QR.",
+    "upstream": "How this router reaches Telegram DCs. Auto is best on censored networks.",
+    "update": "Downloads a GitHub release and restarts the service. No SSH needed."
+  },
+  "toast": {
+    "testOk": "Upstream OK",
+    "testFail": "Upstream failed",
+    "ipOk": "Public IP set",
+    "qrNeedSecret": "Generate a secret first",
+    "dcOk": "DC list refreshed"
+  },
+  "tabs": {
+    "connect": "Connect",
+    "proxy": "Proxy",
+    "access": "Panel",
+    "system": "System"
+  },
   "remote": {
     "title": "Outside home Wi‑Fi",
-    "body": "Telegram clients on mobile data need your public IP/DDNS and a forwarded TCP proxy port. Keep the web panel on LAN only.",
+    "body": "Mobile data needs your public IP/DDNS and a forwarded TCP proxy port. Keep the web UI on LAN only.",
     "detect": "Detect public IP",
-    "useIp": "Use for QR/links",
-    "steps1": "Keenetic → Network rules / Port forwarding → TCP",
-    "steps2": "Forward the proxy port (default 8443) to the router itself",
-    "steps3": "Paste public IP or DDNS into the share host field above",
+    "steps1": "Keenetic → Port forwarding → TCP",
+    "steps2": "Forward proxy port to this Keenetic device",
+    "steps3": "Put that public host into the field below",
     "steps4": "Do not forward UI port 7788 to the internet"
   },
   "update": {
     "title": "Updates",
-    "check": "Check GitHub",
+    "check": "Check for updates",
     "apply": "Install & restart",
-    "current": "Current",
+    "current": "Installed",
     "latest": "Latest",
     "available": "Update available",
     "uptodate": "Up to date",
-    "restarting": "Installing… the panel will reconnect in ~20s"
+    "restarting": "Installing… reload in ~20s"
   },
   "share": {
-    "title": "Connect in Telegram",
-    "hint": "Public host / IP for QR and links",
-    "scan": "Scan with Telegram",
+    "title": "Telegram connection",
+    "hint": "Public host / IP",
+    "scan": "Scan in Telegram",
     "copyLink": "Copy tg:// link",
     "copySecret": "Copy secret",
-    "openTelegram": "Open in Telegram",
-    "noSecret": "Generate a secret first"
+    "openTelegram": "Open Telegram",
+    "noSecret": "No secret yet — generate one in Secrets",
+    "qrTitle": "QR for Telegram",
+    "showQr": "Show QR"
   },
   "proxy": {
-    "title": "Proxy",
-    "enabled": "Enable proxy",
+    "title": "Proxy settings",
+    "enabled": "Enable MTProto proxy",
     "port": "Listen port",
     "bind": "Bind address",
     "fakeSni": "Fake SNI domain",
@@ -52,42 +76,41 @@
     "upstreamWs": "WebSocket only",
     "upstreamAuto": "Auto (WS → TCP)",
     "cfWorker": "Cloudflare Worker domain",
-    "cfProxy": "Shared CF proxy pool",
+    "cfProxy": "Use shared CF proxy pool",
     "dcRelay": "DC relay (host:port)",
     "test": "Test upstream",
     "testing": "Testing…",
-    "refreshDcs": "Refresh DCs"
+    "refreshDcs": "Refresh DC list",
+    "testTitle": "Upstream test"
   },
   "web": {
-    "title": "Panel access",
+    "title": "Panel login",
     "port": "UI port",
     "bind": "Bind address",
     "username": "Username",
     "password": "Password",
-    "note": "API is protected by this login (no browser Basic Auth popups). Leave empty to open the panel on LAN."
+    "note": "Protects API calls. Empty login/password = open panel on LAN."
   },
   "secrets": {
     "title": "Secrets",
     "name": "Name",
     "secret": "Secret",
-    "enabled": "On",
+    "enabled": "Enabled",
     "add": "Add secret",
     "generate": "Generate",
     "copyLink": "Copy link",
-    "copied": "Copied",
     "remove": "Remove",
     "useForQr": "Show QR"
   },
   "sessions": {
-    "title": "Live sessions",
+    "title": "Active sessions",
     "client": "Client",
     "dest": "Destination",
     "secret": "Secret",
     "connected": "Connected",
-    "empty": "No active clients yet"
+    "empty": "No clients connected"
   },
   "nfqws": {
-    "title": "Works with nfqws2",
-    "body": "Listen-only proxy: no NFQUEUE, iptables or packet marks — safe beside nfqws2-keenetic."
+    "body": "Safe next to nfqws2: listen-only, no NFQUEUE / iptables / marks."
   }
 }

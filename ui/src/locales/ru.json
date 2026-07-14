@@ -5,45 +5,69 @@
   "login": "Войти",
   "logout": "Выйти",
   "saving": "Сохранение…",
-  "saved": "Сохранено",
+  "saved": "Настройки сохранены",
   "error": "Ошибка",
   "refresh": "Обновить",
-  "lang": "Язык",
+  "close": "Закрыть",
+  "copy": "Копировать",
+  "copied": "Скопировано",
   "online": "Прокси включён",
   "offline": "Прокси выключен",
   "clients": "клиентов",
+  "secretsCount": "секретов",
+  "port": "порт",
+  "hint": {
+    "host": "Публичный IP или DDNS для ссылок вне домашнего Wi‑Fi. Не 192.168.x.x.",
+    "secret": "Fake-TLS secret для MTProto в Telegram. Сгенерируй и раздай QR.",
+    "upstream": "Как роутер ходит до DC Telegram. На цензуре обычно Auto.",
+    "update": "Скачает релиз с GitHub и перезапустит сервис. SSH не нужен."
+  },
+  "toast": {
+    "testOk": "Upstream в порядке",
+    "testFail": "Upstream не прошёл",
+    "ipOk": "Белый IP подставлен",
+    "qrNeedSecret": "Сначала сгенерируй secret",
+    "dcOk": "Список DC обновлён"
+  },
+  "tabs": {
+    "connect": "Подключение",
+    "proxy": "Прокси",
+    "access": "Панель",
+    "system": "Система"
+  },
   "remote": {
-    "title": "Доступ вне домашнего Wi‑Fi",
-    "body": "С мобильного интернета Telegram должен ходить на публичный IP/DDNS и проброшенный TCP-порт прокси. Веб-панель лучше оставить только в LAN.",
+    "title": "Вне домашнего Wi‑Fi",
+    "body": "С мобильного интернета нужен публичный IP/DDNS и проброс TCP порта прокси. Веб-панель лучше только в LAN.",
     "detect": "Узнать белый IP",
-    "useIp": "Подставить в QR/ссылки",
-    "steps1": "Keenetic → Сетевые правила / Проброс портов → TCP",
-    "steps2": "Пробрось порт прокси (обычно 8443) на сам роутер",
-    "steps3": "Вставь публичный IP или DDNS в поле хоста выше",
+    "steps1": "Keenetic → Проброс портов → TCP",
+    "steps2": "Пробрось порт прокси на «это устройство Keenetic»",
+    "steps3": "Вставь этот хост в поле ниже",
     "steps4": "Порт UI 7788 в интернет не открывай"
   },
   "update": {
     "title": "Обновления",
-    "check": "Проверить GitHub",
+    "check": "Проверить обновления",
     "apply": "Установить и перезапустить",
     "current": "Сейчас",
-    "latest": "Последняя",
+    "latest": "На GitHub",
     "available": "Есть обновление",
-    "uptodate": "Актуально",
-    "restarting": "Ставится… панель вернётся через ~20с"
+    "uptodate": "Уже актуально",
+    "restarting": "Ставится… через ~20с обнови страницу"
   },
   "share": {
-    "title": "Подключение в Telegram",
-    "hint": "Публичный хост / IP для QR и ссылок",
-    "scan": "Сканируй камерой Telegram",
+    "title": "Подключение Telegram",
+    "hint": "Публичный хост / IP",
+    "scan": "Сканируй в Telegram",
     "copyLink": "Копировать tg://",
     "copySecret": "Копировать secret",
-    "openTelegram": "Открыть в Telegram",
-    "noSecret": "Сначала сгенерируй secret"
+    "openTelegram": "Открыть Telegram",
+    "noSecret": "Нет secret — сгенерируй во вкладке ниже",
+    "qrTitle": "QR для Telegram",
+    "showQr": "Показать QR"
   },
   "proxy": {
-    "title": "Прокси",
-    "enabled": "Включить прокси",
+    "title": "Настройки прокси",
+    "enabled": "Включить MTProto-прокси",
     "port": "Порт прослушивания",
     "bind": "Адрес bind",
     "fakeSni": "Fake SNI домен",
@@ -56,38 +80,37 @@
     "dcRelay": "DC relay (host:port)",
     "test": "Проверить upstream",
     "testing": "Проверка…",
-    "refreshDcs": "Обновить DC"
+    "refreshDcs": "Обновить список DC",
+    "testTitle": "Результат upstream"
   },
   "web": {
-    "title": "Доступ к панели",
+    "title": "Вход в панель",
     "port": "Порт UI",
     "bind": "Адрес bind",
     "username": "Логин",
     "password": "Пароль",
-    "note": "API защищён этим логином (без всплывающего Basic Auth в браузере). Пустые поля — открытая панель в LAN."
+    "note": "Защищает API. Пустые логин/пароль — открытая панель в LAN."
   },
   "secrets": {
     "title": "Секреты",
     "name": "Имя",
     "secret": "Секрет",
-    "enabled": "Вкл",
+    "enabled": "Включён",
     "add": "Добавить секрет",
     "generate": "Сгенерировать",
     "copyLink": "Копировать ссылку",
-    "copied": "Скопировано",
     "remove": "Удалить",
     "useForQr": "Показать QR"
   },
   "sessions": {
-    "title": "Живые сессии",
+    "title": "Активные сессии",
     "client": "Клиент",
-    "dest": "Назначение",
+    "dest": "Куда",
     "secret": "Секрет",
-    "connected": "Подключён",
-    "empty": "Пока нет активных клиентов"
+    "connected": "С",
+    "empty": "Клиентов пока нет"
   },
   "nfqws": {
-    "title": "Совместимо с nfqws2",
-    "body": "Только listen-прокси: без NFQUEUE, iptables и marks — спокойно рядом с nfqws2-keenetic."
+    "body": "Совместимо с nfqws2: только listen, без NFQUEUE / iptables / marks."
   }
 }

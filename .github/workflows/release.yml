@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing git tag to release (e.g. v1.0.0)"
+        description: "Release tag (e.g. v1.0.4). Created on this commit if missing."
         required: true
         type: string
-        default: "v1.0.0"
+        default: "v1.0.4"
 
 permissions:
   contents: write
@@ -59,7 +59,7 @@ jobs:
         with:
           go-version: "1.24.x"
 
-          - name: Build binary
+      - name: Build binary
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
@@ -69,7 +69,7 @@ jobs:
           VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
         run: |
           go build -trimpath -ldflags="-s -w -X github.com/keenetic-mtproto/keenetic-mtproto/internal/web.Version=${VERSION}" -o keenetic-mtproto ./cmd/keenetic-mtproto
-          tar -czf keenetic-mtproto-${{ matrix.suffix }}.tar.gz keenetic-mtproto
+          tar -czf "keenetic-mtproto-${{ matrix.suffix }}.tar.gz" keenetic-mtproto
 
       - uses: actions/upload-artifact@v4
         with:
@@ -80,7 +80,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Resolve release tag
+      - name: Resolve tag
         id: meta
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -88,10 +88,12 @@ jobs:
           else
             TAG="${{ github.ref_name }}"
           fi
-          if [ -z "$TAG" ] || [ "$TAG" = "main" ] || [ "$TAG" = "master" ]; then
-            echo "Refusing to release without a version tag (got: '$TAG')"
-            exit 1
-          fi
+          case "$TAG" in
+            ""|main|master)
+              echo "Need a version tag like v1.0.4 (got: '$TAG')"
+              exit 1
+              ;;
+          esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Using tag: $TAG"
 
@@ -101,28 +103,35 @@ jobs:
           pattern: keenetic-mtproto-*
           merge-multiple: true
 
-      - name: List artifacts
-        run: ls -la artifacts
-
-      - name: Create or update GitHub Release
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          set -eux
-          # Tag must already exist on the remote (create it via git push --tags)
-          if ! gh api "repos/${{ github.repository }}/git/refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Remote tag '${TAG}' not found. Create it first:"
-            echo "  git tag ${TAG} && git push origin ${TAG}"
+          set -eu
+          echo "Tag=$TAG"
+          echo "Artifacts:"
+          find artifacts -type f -name '*.tar.gz' -print
+
+          COUNT=$(find artifacts -type f -name '*.tar.gz' | wc -l)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No tar.gz files found"
+            find artifacts -type f -print || true
             exit 1
           fi
 
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/*.tar.gz --clobber --repo "${{ github.repository }}"
+          mkdir -p dist
+          find artifacts -type f -name '*.tar.gz' -exec cp -f {} dist/ \;
+          ls -la dist
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Updating existing release $TAG"
+            gh release upload "$TAG" dist/*.tar.gz --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" artifacts/*.tar.gz \
-              --repo "${{ github.repository }}" \
+            echo "Creating release $TAG on $GITHUB_SHA"
+            gh release create "$TAG" dist/*.tar.gz \
+              --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" \
               --generate-notes \
-              --verify-tag
+              --target "$GITHUB_SHA"
           fi
