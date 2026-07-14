@@ -25,7 +25,7 @@ This process only opens TCP listeners (proxy + UI). Outbound traffic looks like 
 ```sh
 # set your repo path if different
 export REPO="YOUR_GITHUB_USER/keenetic-mtproto"
-curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" | sh
+curl -fsSL "https://raw.githubusercontent.com/keenetic-mtproto-main/main/install.sh" | sh
 ```
 
 Installs:
