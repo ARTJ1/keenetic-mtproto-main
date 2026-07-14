@@ -21,7 +21,6 @@ This process only opens TCP listeners (proxy + UI). Outbound traffic looks like 
 
 
 ```sh
-# set your repo path if different
 export REPO="ARTJ1/keenetic-mtproto-main"
 curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh" | sh
 ```
