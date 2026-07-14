@@ -26,7 +26,8 @@
     "testOk": "Upstream OK",
     "testFail": "Upstream failed",
     "ipOk": "Public IP set",
-    "qrNeedSecret": "Generate a secret first"
+    "qrNeedSecret": "Generate a secret first",
+    "dcOk": "DC list refreshed"
   },
   "tabs": {
     "connect": "Connect",
