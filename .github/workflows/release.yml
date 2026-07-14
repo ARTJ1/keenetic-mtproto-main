@@ -9,6 +9,7 @@ on:
       tag:
         description: "Existing git tag to release (e.g. v1.0.0)"
         required: true
+        type: string
         default: "v1.0.0"
 
 permissions:
@@ -35,6 +36,10 @@ jobs:
             goarch: mipsle
             gomips: softfloat
             suffix: linux-mipsle_softfloat
+          - goos: linux
+            goarch: mips
+            gomips: softfloat
+            suffix: linux-mips_softfloat
     steps:
       - uses: actions/checkout@v4
 
@@ -74,18 +79,49 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ] || [ "$TAG" = "master" ]; then
+            echo "Refusing to release without a version tag (got: '$TAG')"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Using tag: $TAG"
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: keenetic-mtproto-*
           merge-multiple: true
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          # Push-to-tag → github.ref_name; manual Run workflow → inputs.tag
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          files: artifacts/*.tar.gz
-          generate_release_notes: true
-          fail_on_unmatched_files: true
+      - name: List artifacts
+        run: ls -la artifacts
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -eux
+          # Tag must already exist on the remote (create it via git push --tags)
+          if ! gh api "repos/${{ github.repository }}/git/refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Remote tag '${TAG}' not found. Create it first:"
+            echo "  git tag ${TAG} && git push origin ${TAG}"
+            exit 1
+          fi
+
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/*.tar.gz --clobber --repo "${{ github.repository }}"
+          else
+            gh release create "$TAG" artifacts/*.tar.gz \
+              --repo "${{ github.repository }}" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
