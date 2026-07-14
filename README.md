@@ -19,8 +19,6 @@ This process only opens TCP listeners (proxy + UI). Outbound traffic looks like 
 
 ## Install on Keenetic
 
-1. Entware / OPKG must be installed.
-2. After you publish a GitHub release, run on the router:
 
 ```sh
 # set your repo path if different
