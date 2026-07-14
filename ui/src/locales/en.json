@@ -1,0 +1,59 @@
+{
+  "title": "keenetic-mtproto",
+  "subtitle": "Telegram MTProto proxy for Keenetic",
+  "save": "Save",
+  "saving": "Saving…",
+  "saved": "Saved",
+  "error": "Error",
+  "refresh": "Refresh",
+  "lang": "Language",
+  "proxy": {
+    "title": "Proxy",
+    "enabled": "Enable proxy",
+    "port": "Listen port",
+    "bind": "Bind address",
+    "fakeSni": "Fake SNI domain",
+    "upstream": "Upstream mode",
+    "upstreamTcp": "Direct TCP",
+    "upstreamWs": "WebSocket only",
+    "upstreamAuto": "Auto (WS → TCP)",
+    "cfWorker": "Cloudflare Worker domain",
+    "cfProxy": "Use shared CF proxy pool",
+    "dcRelay": "DC relay (host:port)",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "refreshDcs": "Refresh DC list"
+  },
+  "web": {
+    "title": "Web UI",
+    "port": "UI port",
+    "bind": "Bind address",
+    "username": "Username",
+    "password": "Password",
+    "note": "Change password after first login. Keep UI on LAN if possible."
+  },
+  "secrets": {
+    "title": "Secrets",
+    "name": "Name",
+    "secret": "Secret",
+    "enabled": "On",
+    "add": "Add secret",
+    "generate": "Generate",
+    "copyLink": "Copy tg:// link",
+    "copied": "Copied",
+    "serverHint": "Public host / IP for share links",
+    "remove": "Remove"
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "client": "Client",
+    "dest": "Destination",
+    "secret": "Secret",
+    "connected": "Connected",
+    "empty": "No active clients"
+  },
+  "nfqws": {
+    "title": "Works alongside nfqws2",
+    "body": "This proxy only listens on a TCP port. It does not use NFQUEUE, iptables or packet marks, so it will not conflict with nfqws2-keenetic."
+  }
+}

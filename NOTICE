@@ -1,0 +1,7 @@
+# Attribution
+
+keenetic-mtproto includes MTProto proxy code originally developed as part of
+B4 (https://github.com/daniellavrushin/b4), licensed under the GNU GPL v3.
+
+WebSocket / Cloudflare upstream ideas were informed by tg-ws-proxy
+(https://github.com/Flowseal/tg-ws-proxy).

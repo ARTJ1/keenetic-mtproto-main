@@ -1,0 +1,20 @@
+{
+  "web": {
+    "port": 7788,
+    "bind": "0.0.0.0",
+    "username": "admin",
+    "password": "admin"
+  },
+  "proxy": {
+    "enabled": true,
+    "port": 8443,
+    "bind_address": "0.0.0.0",
+    "fake_sni": "storage.googleapis.com",
+    "upstream_mode": "auto",
+    "secrets": [],
+    "cfproxy_enabled": true,
+    "cfworker_domain": "",
+    "dc_relay": "",
+    "dc_fallback_enabled": true
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "title": "keenetic-mtproto",
+  "subtitle": "MTProto-прокси Telegram для Keenetic",
+  "save": "Сохранить",
+  "saving": "Сохранение…",
+  "saved": "Сохранено",
+  "error": "Ошибка",
+  "refresh": "Обновить",
+  "lang": "Язык",
+  "proxy": {
+    "title": "Прокси",
+    "enabled": "Включить прокси",
+    "port": "Порт прослушивания",
+    "bind": "Адрес bind",
+    "fakeSni": "Fake SNI домен",
+    "upstream": "Режим upstream",
+    "upstreamTcp": "Прямой TCP",
+    "upstreamWs": "Только WebSocket",
+    "upstreamAuto": "Авто (WS → TCP)",
+    "cfWorker": "Домен Cloudflare Worker",
+    "cfProxy": "Общий пул CF proxy",
+    "dcRelay": "DC relay (host:port)",
+    "test": "Проверить соединение",
+    "testing": "Проверка…",
+    "refreshDcs": "Обновить список DC"
+  },
+  "web": {
+    "title": "Веб-интерфейс",
+    "port": "Порт UI",
+    "bind": "Адрес bind",
+    "username": "Логин",
+    "password": "Пароль",
+    "note": "Смените пароль после первого входа. UI лучше оставить только в LAN."
+  },
+  "secrets": {
+    "title": "Секреты",
+    "name": "Имя",
+    "secret": "Секрет",
+    "enabled": "Вкл",
+    "add": "Добавить секрет",
+    "generate": "Сгенерировать",
+    "copyLink": "Копировать tg:// ссылку",
+    "copied": "Скопировано",
+    "serverHint": "Публичный хост / IP для ссылок",
+    "remove": "Удалить"
+  },
+  "sessions": {
+    "title": "Активные сессии",
+    "client": "Клиент",
+    "dest": "Назначение",
+    "secret": "Секрет",
+    "connected": "Подключён",
+    "empty": "Нет активных клиентов"
+  },
+  "nfqws": {
+    "title": "Совместимо с nfqws2",
+    "body": "Прокси только слушает TCP-порт. Не использует NFQUEUE, iptables и marks — не конфликтует с nfqws2-keenetic."
+  }
+}

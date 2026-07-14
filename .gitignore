@@ -1,0 +1,22 @@
+# Binaries / deps
+bin/
+dist/
+*.exe
+*.tar.gz
+
+# Go
+vendor/
+
+# Node / UI
+ui/node_modules/
+ui/dist/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.tmp
+
+# Local config samples with secrets
+config.local.json

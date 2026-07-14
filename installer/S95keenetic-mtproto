@@ -1,0 +1,10 @@
+#!/bin/sh
+# Reference Entware init script (installed by install.sh as S95keenetic-mtproto)
+ENABLED=yes
+PROCS=keenetic-mtproto
+ARGS="--config=/opt/etc/keenetic-mtproto/config.json"
+PREARGS=""
+which nohup >/dev/null 2>&1 && PREARGS="nohup"
+DESC="$PROCS"
+PATH=/opt/sbin:/opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+. /opt/etc/init.d/rc.func
