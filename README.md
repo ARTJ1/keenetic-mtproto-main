@@ -77,7 +77,18 @@ Service control:
 On censored networks prefer `auto` and optionally a Cloudflare Worker domain.  
 On a foreign VPS, `tcp` is usually enough.
 
-## Web UI / auth
+## Outside home Wi‑Fi (mobile internet)
+
+UI (:7788) is for LAN. Telegram proxy (:8443 by default) can be used from anywhere if you:
+
+1. Keenetic → port forwarding → TCP **8443** → this router  
+2. Put your **public IP / DDNS** into the share host field (or press «Detect public IP»)  
+3. Scan the QR / open `tg://proxy…` in Telegram  
+
+Do **not** forward the web UI port to the internet.
+
+In the panel there is also **Updates → Check GitHub → Install & restart** so you can upgrade without SSH.
+
 
 The panel HTML and JS are served **without** browser Basic Auth (Chrome breaks ES modules otherwise).
 API calls use a login form → `Authorization: Basic …` in sessionStorage.

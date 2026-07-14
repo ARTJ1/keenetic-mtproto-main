@@ -9,8 +9,13 @@ const (
 
 // FileConfig is the on-disk JSON shape (slim standalone schema).
 type FileConfig struct {
-	Web   WebConfig   `json:"web"`
-	Proxy ProxyConfig `json:"proxy"`
+	Web    WebConfig    `json:"web"`
+	Proxy  ProxyConfig  `json:"proxy"`
+	Update UpdateConfig `json:"update"`
+}
+
+type UpdateConfig struct {
+	Repo string `json:"repo"` // GitHub owner/repo for self-update, e.g. ARTJ1/keenetic-mtproto-main
 }
 
 type WebConfig struct {
@@ -60,6 +65,7 @@ type Config struct {
 	Queue      QueueConfig  `json:"-"`
 	ConfigPath string       `json:"-"`
 	Web        WebConfig    `json:"-"`
+	Update     UpdateConfig `json:"-"`
 }
 
 type SystemConfig struct {

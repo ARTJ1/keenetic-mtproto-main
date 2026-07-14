@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -31,6 +32,9 @@ func DefaultFileConfig() FileConfig {
 			DCFallbackEnabled: true,
 			DCFallbackURL:     TGDCFallbackURL,
 		},
+		Update: UpdateConfig{
+			Repo: "ARTJ1/keenetic-mtproto-main",
+		},
 	}
 }
 
@@ -45,6 +49,7 @@ var DefaultConfig = Config{
 func (c *Config) ApplyFile(f FileConfig) {
 	c.Web = f.Web
 	c.System.MTProto = f.Proxy
+	c.Update = f.Update
 	c.Queue.Mark = 0
 	c.Queue.IPv4Enabled = true
 	c.Queue.IPv6Enabled = false
@@ -52,8 +57,9 @@ func (c *Config) ApplyFile(f FileConfig) {
 
 func (c *Config) ToFile() FileConfig {
 	return FileConfig{
-		Web:   c.Web,
-		Proxy: c.System.MTProto,
+		Web:    c.Web,
+		Proxy:  c.System.MTProto,
+		Update: c.Update,
 	}
 }
 
@@ -98,9 +104,7 @@ func applyDefaults(f *FileConfig) {
 	if f.Web.Bind == "" {
 		f.Web.Bind = d.Web.Bind
 	}
-	if f.Web.Username == "" {
-		f.Web.Username = d.Web.Username
-	}
+	// username/password intentionally allow empty (open LAN panel)
 	if f.Proxy.Port == 0 {
 		f.Proxy.Port = d.Proxy.Port
 	}
@@ -118,6 +122,9 @@ func applyDefaults(f *FileConfig) {
 	}
 	if f.Proxy.DCFallbackURL == "" && f.Proxy.DCFallbackEnabled {
 		f.Proxy.DCFallbackURL = d.Proxy.DCFallbackURL
+	}
+	if strings.TrimSpace(f.Update.Repo) == "" {
+		f.Update.Repo = d.Update.Repo
 	}
 }
 

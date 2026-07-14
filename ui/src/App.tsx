@@ -36,6 +36,14 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [qrIdx, setQrIdx] = useState(0);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [version, setVersion] = useState("…");
+  const [updateInfo, setUpdateInfo] = useState<{
+    current: string;
+    latest: string;
+    update_available: boolean;
+    arch: string;
+    repo: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const res = await api.getConfig();
@@ -57,6 +65,10 @@ export default function App() {
       }
       setStatus({ kind: "err", text: String((e as Error).message || e) });
     });
+    api
+      .systemInfo()
+      .then((info) => setVersion(info.version))
+      .catch(() => undefined);
     const id = window.setInterval(() => {
       api
         .sessions()
@@ -226,6 +238,9 @@ export default function App() {
         <div className="brand">
           <h1>{t("title")}</h1>
           <p>{t("subtitle")}</p>
+          <div style={{ marginTop: 10 }}>
+            <span className="badge on">{version}</span>
+          </div>
         </div>
         <div className="tools">
           <select
@@ -342,6 +357,94 @@ export default function App() {
           </div>
         </section>
       </div>
+
+      <section className="card">
+        <h2>{t("remote.title")}</h2>
+        <p className="note">{t("remote.body")}</p>
+        <ol className="steps" style={{ marginTop: 10 }}>
+          <li>{t("remote.steps1")} <code>{sharePort}</code></li>
+          <li>{t("remote.steps2")}</li>
+          <li>{t("remote.steps3")}</li>
+          <li>{t("remote.steps4")}</li>
+        </ol>
+        <div className="actions">
+          <button
+            className="ghost"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const res = await api.publicIP();
+                setServerHost(res.ip);
+                setStatus({ kind: "ok", text: res.ip });
+              } catch (e: any) {
+                setStatus({ kind: "err", text: e.message || t("error") });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t("remote.detect")}
+          </button>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>{t("update.title")}</h2>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <span className="badge">
+            {t("update.current")}: {updateInfo?.current || version}
+          </span>
+          {updateInfo ? (
+            <span className={`badge ${updateInfo.update_available ? "on" : ""}`}>
+              {t("update.latest")}: {updateInfo.latest}
+              {" · "}
+              {updateInfo.update_available ? t("update.available") : t("update.uptodate")}
+            </span>
+          ) : null}
+        </div>
+        <div className="actions">
+          <button
+            className="ghost"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const res = await api.updateCheck();
+                setUpdateInfo(res.check);
+                setVersion(res.check.current);
+                setStatus({
+                  kind: "ok",
+                  text: res.check.update_available ? t("update.available") : t("update.uptodate"),
+                });
+              } catch (e: any) {
+                setStatus({ kind: "err", text: e.message || t("error") });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t("update.check")}
+          </button>
+          <button
+            className="primary"
+            disabled={busy || !updateInfo?.update_available}
+            onClick={async () => {
+              setBusy(true);
+              setStatus({ kind: "", text: t("update.restarting") });
+              try {
+                await api.updateApply();
+                window.setTimeout(() => location.reload(), 18000);
+              } catch (e: any) {
+                setStatus({ kind: "err", text: e.message || t("error") });
+                setBusy(false);
+              }
+            }}
+          >
+            {t("update.apply")}
+          </button>
+        </div>
+      </section>
 
       <section className="card">
         <h2>{t("proxy.title")}</h2>

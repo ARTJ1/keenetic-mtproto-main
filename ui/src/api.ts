@@ -35,6 +35,7 @@ export type WebConfig = {
 export type FileConfig = {
   web: WebConfig;
   proxy: ProxyConfig;
+  update?: { repo?: string };
 };
 
 export type Session = {
@@ -115,6 +116,28 @@ export const api = {
   refreshDCs: () =>
     req<{ success: boolean }>("/api/mtproto/refresh-dcs", { method: "POST", body: "{}" }),
   sessions: () => req<Session[]>("/api/mtproto/sessions"),
+  systemInfo: () =>
+    req<{ success: boolean; version: string; arch: string; repo: string; proxy_port: number; web_port: number }>(
+      "/api/system/info"
+    ),
+  publicIP: () => req<{ success: boolean; ip: string }>("/api/system/public-ip"),
+  updateCheck: () =>
+    req<{
+      success: boolean;
+      check: {
+        current: string;
+        latest: string;
+        update_available: boolean;
+        asset?: string;
+        arch: string;
+        repo: string;
+      };
+    }>("/api/update/check"),
+  updateApply: () =>
+    req<{ success: boolean; message: string }>("/api/update/apply", {
+      method: "POST",
+      body: "{}",
+    }),
 };
 
 export function tgProxyLink(server: string, port: number, secret: string): string {

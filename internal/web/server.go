@@ -17,6 +17,7 @@ import (
 	"github.com/keenetic-mtproto/keenetic-mtproto/internal/config"
 	"github.com/keenetic-mtproto/keenetic-mtproto/internal/log"
 	"github.com/keenetic-mtproto/keenetic-mtproto/internal/mtproto"
+	"github.com/keenetic-mtproto/keenetic-mtproto/internal/update"
 )
 
 type Server struct {
@@ -118,6 +119,10 @@ func (s *Server) registerAPI(mux *http.ServeMux) {
 	mux.HandleFunc("/api/mtproto/sessions", s.handleSessions)
 	mux.HandleFunc("/api/mtproto/active-clients", s.handleActiveClients)
 	mux.HandleFunc("/api/mtproto/stats", s.handleStats)
+	mux.HandleFunc("/api/system/info", s.handleSystemInfo)
+	mux.HandleFunc("/api/system/public-ip", s.handlePublicIP)
+	mux.HandleFunc("/api/update/check", s.handleUpdateCheck)
+	mux.HandleFunc("/api/update/apply", s.handleUpdateApply)
 }
 
 func (s *Server) handleFullConfig(w http.ResponseWriter, r *http.Request) {
@@ -404,6 +409,91 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, s.proxy.Stats())
+}
+
+func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	cfg := s.getCfg()
+	writeJSON(w, map[string]any{
+		"success": true,
+		"version": Version,
+		"arch":    update.ArchSuffix(),
+		"repo":    update.NormalizeRepo(cfg.Update.Repo),
+		"proxy_port": cfg.System.MTProto.Port,
+		"web_port":   cfg.Web.Port,
+	})
+}
+
+func (s *Server) handlePublicIP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	client := &http.Client{Timeout: 8 * time.Second}
+	req, err := http.NewRequest(http.MethodGet, "https://api.ipify.org?format=text", nil)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	req.Header.Set("User-Agent", "keenetic-mtproto")
+	res, err := client.Do(req)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	defer res.Body.Close()
+	b, err := io.ReadAll(io.LimitReader(res.Body, 64))
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	ip := strings.TrimSpace(string(b))
+	if ip == "" {
+		writeErr(w, http.StatusBadGateway, "empty public ip")
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "ip": ip})
+}
+
+func (s *Server) handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	repo := update.NormalizeRepo(s.getCfg().Update.Repo)
+	res, err := update.Check(Version, repo)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"success": true, "check": res})
+}
+
+func (s *Server) handleUpdateApply(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	repo := update.NormalizeRepo(s.getCfg().Update.Repo)
+	res, err := update.Apply(Version, repo, "")
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{
+		"success": true,
+		"message": "binary updated; restarting service",
+		"check":   res,
+	})
+	go func() {
+		time.Sleep(800 * time.Millisecond)
+		if err := update.RestartService(); err != nil {
+			log.Errorf("service restart after update: %v", err)
+		}
+	}()
 }
 
 func sanitizeName(name string) string {
