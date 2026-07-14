@@ -7,7 +7,7 @@
 
 set -eu
 
-REPO="${REPO:-keenetic-mtproto/keenetic-mtproto}"
+REPO="${REPO:-ARTJ1/keenetic-mtproto-main}"
 VERSION="${VERSION:-latest}"
 BIN_DIR="/opt/sbin"
 DATA_DIR="/opt/etc/keenetic-mtproto"

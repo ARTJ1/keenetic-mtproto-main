@@ -12,6 +12,26 @@
   "online": "Proxy online",
   "offline": "Proxy offline",
   "clients": "clients",
+  "remote": {
+    "title": "Outside home Wi‑Fi",
+    "body": "Telegram clients on mobile data need your public IP/DDNS and a forwarded TCP proxy port. Keep the web panel on LAN only.",
+    "detect": "Detect public IP",
+    "useIp": "Use for QR/links",
+    "steps1": "Keenetic → Network rules / Port forwarding → TCP",
+    "steps2": "Forward the proxy port (default 8443) to the router itself",
+    "steps3": "Paste public IP or DDNS into the share host field above",
+    "steps4": "Do not forward UI port 7788 to the internet"
+  },
+  "update": {
+    "title": "Updates",
+    "check": "Check GitHub",
+    "apply": "Install & restart",
+    "current": "Current",
+    "latest": "Latest",
+    "available": "Update available",
+    "uptodate": "Up to date",
+    "restarting": "Installing… the panel will reconnect in ~20s"
+  },
   "share": {
     "title": "Connect in Telegram",
     "hint": "Public host / IP for QR and links",
