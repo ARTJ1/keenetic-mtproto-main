@@ -26,8 +26,7 @@
     "testOk": "Upstream в порядке",
     "testFail": "Upstream не прошёл",
     "ipOk": "Белый IP подставлен",
-    "qrNeedSecret": "Сначала сгенерируй secret",
-    "dcOk": "Список DC обновлён"
+    "qrNeedSecret": "Сначала сгенерируй secret"
   },
   "tabs": {
     "connect": "Подключение",
