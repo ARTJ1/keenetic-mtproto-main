@@ -1,9 +1,9 @@
 #!/bin/sh
 # keenetic-mtproto Entware install / upgrade script
 # Usage on router:
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/keenetic-mtproto/main/install.sh | sh
-# Or with a specific version:
-#   VERSION=v1.0.0 sh install.sh
+#   curl -fsSL https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh | sh
+# Pin a release (recommended):
+#   curl -fsSL https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh | VERSION=v1.0.6 sh
 
 set -eu
 
@@ -16,6 +16,7 @@ SERVICE_DIR="/opt/etc/init.d"
 SERVICE_NAME="S95keenetic-mtproto"
 BINARY_NAME="keenetic-mtproto"
 PIDFILE="/opt/var/run/keenetic-mtproto.pid"
+DEST="${BIN_DIR}/${BINARY_NAME}"
 
 log() { printf '%s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -32,7 +33,6 @@ detect_arch() {
 	# uname -m:
 	#   mips   = big-endian  (EcoNet EN75xx etc.)
 	#   mipsel = little-endian (MT7621 etc.)
-	# Both typically need softfloat on Keenetic/Entware.
 	mips) echo "linux-mips_softfloat" ;;
 	mipsel) echo "linux-mipsle_softfloat" ;;
 	x86_64|amd64) echo "linux-amd64" ;;
@@ -46,12 +46,15 @@ download() {
 	url="$1"
 	out="$2"
 	if command -v curl >/dev/null 2>&1; then
-		curl -fsSL -o "$out" "$url"
+		curl -fsSL --connect-timeout 30 --max-time 300 -o "$out" "$url"
 	elif command -v wget >/dev/null 2>&1; then
 		wget -qO "$out" "$url"
 	else
 		die "Need curl or wget"
 	fi
+	# Archives are several MB; reject truncated/HTML error pages.
+	sz=$(wc -c <"$out" | tr -d ' ')
+	[ "$sz" -gt 1000000 ] || die "download too small (${sz} bytes) from $url"
 }
 
 asset_url() {
@@ -61,6 +64,19 @@ asset_url() {
 	else
 		printf 'https://github.com/%s/releases/download/%s/keenetic-mtproto-%s.tar.gz' "$REPO" "$VERSION" "$arch"
 	fi
+}
+
+stop_service() {
+	if [ -x "${SERVICE_DIR}/${SERVICE_NAME}" ]; then
+		"${SERVICE_DIR}/${SERVICE_NAME}" stop 2>/dev/null || true
+	fi
+	if [ -f "$PIDFILE" ]; then
+		kill "$(cat "$PIDFILE")" 2>/dev/null || true
+		rm -f "$PIDFILE"
+	fi
+	killall "$BINARY_NAME" 2>/dev/null || true
+	killall -9 "$BINARY_NAME" 2>/dev/null || true
+	sleep 1
 }
 
 write_service() {
@@ -163,6 +179,8 @@ main() {
 	tmp=$(mktemp -d)
 	trap 'rm -rf "$tmp"' EXIT
 
+	log "arch=$(uname -m) → $arch"
+	log "VERSION=$VERSION"
 	log "Downloading $url"
 	download "$url" "$tmp/pkg.tar.gz"
 	tar -xzf "$tmp/pkg.tar.gz" -C "$tmp"
@@ -170,26 +188,56 @@ main() {
 	bin="$tmp/$BINARY_NAME"
 	[ -f "$bin" ] || bin=$(find "$tmp" -type f -name "$BINARY_NAME" | head -n 1)
 	[ -n "$bin" ] && [ -f "$bin" ] || die "binary not found in archive"
+	chmod +x "$bin"
 
-	"${SERVICE_DIR}/${SERVICE_NAME}" stop 2>/dev/null || true
-	killall "$BINARY_NAME" 2>/dev/null || true
+	# Sanity: ELF binary (reject HTML error pages / wrong downloads).
+	magic=$(od -An -tx1 -N4 "$bin" 2>/dev/null | tr -d ' \n')
+	case "$magic" in
+	7f454c46*) ;;
+	*) die "Downloaded file is not an ELF binary (got magic=$magic). Wrong arch URL or truncated download." ;;
+	esac
+
+	# -version exists from v1.0.7+; older packages just print help/error — ignore.
+	if "$bin" -version >/tmp/kmt-ver.txt 2>/tmp/kmt-ver.err; then
+		ver=$(tr -d '\r\n' </tmp/kmt-ver.txt)
+		log "Package reports version: $ver"
+	elif command -v strings >/dev/null 2>&1; then
+		ver=$(strings "$bin" 2>/dev/null | grep -E '^v1\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+		[ -n "$ver" ] && log "Package embeds version string: $ver"
+	fi
+
+	log "Stopping old service..."
+	stop_service
 
 	mkdir -p "$BIN_DIR" "$DATA_DIR"
-	cp "$bin" "${BIN_DIR}/${BINARY_NAME}"
-	chmod +x "${BIN_DIR}/${BINARY_NAME}"
+	cp -f "$bin" "$DEST"
+	chmod 755 "$DEST"
+	# Keep previous only as .bak after successful copy.
+	[ -f "${DEST}.bak" ] || true
 
 	write_default_config
 	write_service
 
+	log "Starting service..."
 	"${SERVICE_DIR}/${SERVICE_NAME}" start || die "failed to start service"
+	sleep 2
+
+	if [ -x "$DEST" ] && "$DEST" -version >/tmp/kmt-ver2.txt 2>/dev/null; then
+		ver2=$(tr -d '\r\n' </tmp/kmt-ver2.txt)
+		log "Installed binary version: $ver2"
+	fi
+
+	if command -v curl >/dev/null 2>&1; then
+		info=$(curl -fsS --max-time 5 http://127.0.0.1:7788/api/system/info 2>/dev/null || true)
+		[ -n "$info" ] && log "API: $info"
+	fi
 
 	log ""
-	log "Installed ${BIN_DIR}/${BINARY_NAME}"
+	log "OK: ${DEST}"
 	log "Config:  ${CONFIG_FILE}"
 	log "Service: ${SERVICE_DIR}/${SERVICE_NAME}"
-	log "Web UI:  http://<router-ip>:7788  (default admin/admin)"
-	log "Proxy:   TCP 8443 — open this port in Keenetic and add MTProto proxy in Telegram"
-	log "Safe with nfqws2: no NFQUEUE / iptables / marks used."
+	log "Web UI:  http://<router-ip>:7788"
+	log "If browser still shows old UI: hard refresh (Ctrl+F5) or clear cache."
 }
 
 main "$@"

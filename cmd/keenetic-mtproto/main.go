@@ -17,7 +17,13 @@ import (
 func main() {
 	log.Init()
 	cfgPath := flag.String("config", "/opt/etc/keenetic-mtproto/config.json", "path to config.json")
+	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		_, _ = os.Stdout.WriteString(web.Version + "\n")
+		return
+	}
 
 	cfg, err := config.Load(*cfgPath)
 	if err != nil {
