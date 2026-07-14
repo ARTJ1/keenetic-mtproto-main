@@ -122,7 +122,7 @@ export default function App() {
     QRCode.toDataURL(shareLink, {
       width: 400,
       margin: 1,
-      color: { dark: "#12141a", light: "#ffffff" },
+      color: { dark: "#1a0a2e", light: "#ffffff" },
     })
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);
