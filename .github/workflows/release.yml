@@ -109,19 +109,28 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
-          set -eux
-          # Tag must already exist on the remote (create it via git push --tags)
-          if ! gh api "repos/${{ github.repository }}/git/refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Remote tag '${TAG}' not found. Create it first:"
-            echo "  git tag ${TAG} && git push origin ${TAG}"
+          set -eu
+          echo "Publishing tag: $TAG"
+          find artifacts -type f -name '*.tar.gz' | sort
+
+          # Collect assets (download-artifact may nest paths)
+          mapfile -t FILES < <(find artifacts -type f -name '*.tar.gz' | sort)
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "No .tar.gz artifacts found under artifacts/"
+            ls -laR artifacts || true
             exit 1
           fi
 
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload "$TAG" artifacts/*.tar.gz --clobber --repo "${{ github.repository }}"
+            echo "Release $TAG exists — uploading assets"
+            gh release upload "$TAG" "${FILES[@]}" --clobber --repo "${{ github.repository }}"
           else
-            gh release create "$TAG" artifacts/*.tar.gz \
+            echo "Creating release $TAG"
+            # Do not use --verify-tag: workflow_dispatch often runs from a branch tip
+            # while the tag points at an older commit, and gh then exits non-zero.
+            gh release create "$TAG" "${FILES[@]}" \
               --repo "${{ github.repository }}" \
               --title "$TAG" \
               --generate-notes \
-              --verify-tag
+              --target "${{ github.sha }}"
+          fi
