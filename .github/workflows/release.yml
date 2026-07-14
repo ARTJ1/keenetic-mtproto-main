@@ -59,7 +59,7 @@ jobs:
         with:
           go-version: "1.24.x"
 
-          - name: Build binary
+      - name: Build binary
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
@@ -125,4 +125,3 @@ jobs:
               --title "$TAG" \
               --generate-notes \
               --verify-tag
-          fi
