@@ -7,10 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v1.0.3). Will be created on this commit if missing."
+
+        description: "Release tag (e.g. v1.0.4). Created on this commit if missing."
         required: true
         type: string
-        default: "v1.0.3"
+        default: "v1.0.4"
 
 permissions:
   contents: write
@@ -90,7 +91,9 @@ jobs:
           fi
           case "$TAG" in
             ""|main|master)
-              echo "Need a version tag like v1.0.3 (got: '$TAG')"
+
+              echo "Need a version tag like v1.0.4 (got: '$TAG')"
+
               exit 1
               ;;
           esac
@@ -120,7 +123,7 @@ jobs:
             exit 1
           fi
 
-          # Put files in a flat dir for simple globbing
+
           mkdir -p dist
           find artifacts -type f -name '*.tar.gz' -exec cp -f {} dist/ \;
           ls -la dist
