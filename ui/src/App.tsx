@@ -813,9 +813,10 @@ export default function App() {
                   toast("info", t("update.restarting"));
                   try {
                     await api.updateApply();
-                    window.setTimeout(() => location.reload(), 18000);
+                    window.setTimeout(() => location.reload(), 22000);
                   } catch (e: any) {
-                    toast("err", e.message || t("error"));
+                    const msg = e?.message || t("error");
+                    toast("err", msg);
                     setBusy(false);
                   }
                 }}
