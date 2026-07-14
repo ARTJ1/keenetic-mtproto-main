@@ -47,14 +47,41 @@ export type Session = {
   last_seen: string;
 };
 
+const AUTH_KEY = "kmt_auth";
+
+export function getAuthHeader(): string | null {
+  return sessionStorage.getItem(AUTH_KEY);
+}
+
+export function setAuth(username: string, password: string) {
+  const token = btoa(`${username}:${password}`);
+  sessionStorage.setItem(AUTH_KEY, `Basic ${token}`);
+}
+
+export function clearAuth() {
+  sessionStorage.removeItem(AUTH_KEY);
+}
+
+export class AuthError extends Error {
+  constructor(message = "unauthorized") {
+    super(message);
+    this.name = "AuthError";
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const auth = getAuthHeader();
   const res = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(auth ? { Authorization: auth } : {}),
       ...(init?.headers || {}),
     },
   });
+  if (res.status === 401) {
+    throw new AuthError("unauthorized");
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try {

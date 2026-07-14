@@ -19,10 +19,13 @@ This process only opens TCP listeners (proxy + UI). Outbound traffic looks like 
 
 ## Install on Keenetic
 
+1. Entware / OPKG must be installed.
+2. After you publish a GitHub release, run on the router:
 
 ```sh
-export REPO="ARTJ1/keenetic-mtproto-main"
-curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh" | sh
+# set your repo path if different
+export REPO="YOUR_GITHUB_USER/keenetic-mtproto"
+curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" | sh
 ```
 
 Installs:
@@ -74,7 +77,13 @@ Service control:
 On censored networks prefer `auto` and optionally a Cloudflare Worker domain.  
 On a foreign VPS, `tcp` is usually enough.
 
-## Build from source
+## Web UI / auth
+
+The panel HTML and JS are served **without** browser Basic Auth (Chrome breaks ES modules otherwise).
+API calls use a login form → `Authorization: Basic …` in sessionStorage.
+
+Leave `web.username` / `web.password` empty to keep the LAN panel open.
+
 
 ```sh
 # UI + binary
@@ -85,6 +94,8 @@ make release-local
 ```
 
 Requires Go 1.22+ and Node 20+.
+
+Release assets include both `linux-mips_softfloat` (big-endian, `uname -m` = `mips`, e.g. EcoNet EN75xx) and `linux-mipsle_softfloat` (little-endian, `mipsel`, e.g. MT7621).
 
 ## Architecture
 

@@ -1,12 +1,26 @@
 {
   "title": "keenetic-mtproto",
-  "subtitle": "Telegram MTProto proxy for Keenetic",
+  "subtitle": "Telegram MTProto for Keenetic",
   "save": "Save",
+  "login": "Sign in",
+  "logout": "Log out",
   "saving": "Saving…",
   "saved": "Saved",
   "error": "Error",
   "refresh": "Refresh",
   "lang": "Language",
+  "online": "Proxy online",
+  "offline": "Proxy offline",
+  "clients": "clients",
+  "share": {
+    "title": "Connect in Telegram",
+    "hint": "Public host / IP for QR and links",
+    "scan": "Scan with Telegram",
+    "copyLink": "Copy tg:// link",
+    "copySecret": "Copy secret",
+    "openTelegram": "Open in Telegram",
+    "noSecret": "Generate a secret first"
+  },
   "proxy": {
     "title": "Proxy",
     "enabled": "Enable proxy",
@@ -18,19 +32,19 @@
     "upstreamWs": "WebSocket only",
     "upstreamAuto": "Auto (WS → TCP)",
     "cfWorker": "Cloudflare Worker domain",
-    "cfProxy": "Use shared CF proxy pool",
+    "cfProxy": "Shared CF proxy pool",
     "dcRelay": "DC relay (host:port)",
-    "test": "Test connection",
+    "test": "Test upstream",
     "testing": "Testing…",
-    "refreshDcs": "Refresh DC list"
+    "refreshDcs": "Refresh DCs"
   },
   "web": {
-    "title": "Web UI",
+    "title": "Panel access",
     "port": "UI port",
     "bind": "Bind address",
     "username": "Username",
     "password": "Password",
-    "note": "Change password after first login. Keep UI on LAN if possible."
+    "note": "API is protected by this login (no browser Basic Auth popups). Leave empty to open the panel on LAN."
   },
   "secrets": {
     "title": "Secrets",
@@ -39,21 +53,21 @@
     "enabled": "On",
     "add": "Add secret",
     "generate": "Generate",
-    "copyLink": "Copy tg:// link",
+    "copyLink": "Copy link",
     "copied": "Copied",
-    "serverHint": "Public host / IP for share links",
-    "remove": "Remove"
+    "remove": "Remove",
+    "useForQr": "Show QR"
   },
   "sessions": {
-    "title": "Active sessions",
+    "title": "Live sessions",
     "client": "Client",
     "dest": "Destination",
     "secret": "Secret",
     "connected": "Connected",
-    "empty": "No active clients"
+    "empty": "No active clients yet"
   },
   "nfqws": {
-    "title": "Works alongside nfqws2",
-    "body": "This proxy only listens on a TCP port. It does not use NFQUEUE, iptables or packet marks, so it will not conflict with nfqws2-keenetic."
+    "title": "Works with nfqws2",
+    "body": "Listen-only proxy: no NFQUEUE, iptables or packet marks — safe beside nfqws2-keenetic."
   }
 }
