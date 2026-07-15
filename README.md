@@ -1,54 +1,79 @@
 # keenetic-mtproto
 
-Standalone **Telegram MTProto proxy** for Keenetic (Entware) with a built-in web UI.
+MTProto-прокси для Telegram на Keenetic (Entware) с веб-панелью.  
+Клиенты подключаются вручную в Telegram: сервер / порт / secret.
 
-Clients add the proxy manually in Telegram (`server` / `port` / `secret`).  
-Designed to run **next to [nfqws2-keenetic](https://github.com/nfqws/nfqws2-keenetic)** without fighting it.
+Можно ставить рядом с [nfqws2-keenetic](https://github.com/nfqws/nfqws2-keenetic) — процессы не пересекаются (нет NFQUEUE / iptables / `SO_MARK`).
 
-## Why it does not conflict with nfqws2
+## Что нужно
 
-| | nfqws2 | keenetic-mtproto |
-|---|---|---|
-| NFQUEUE | yes (~200) | **no** |
-| iptables / mangle | yes | **no** |
-| `SO_MARK` | `0x20000000` / `0x40000000` | **never set** |
-| Init | `S51nfqws2` | `S95keenetic-mtproto` |
-| Role | DPI desync for web | MTProto listen proxy for Telegram apps |
+1. Роутер Keenetic с **Entware / OPKG** (`/opt` должен существовать).
+2. SSH-доступ к роутеру (или уже установленный curl/wget в Entware).
 
-This process only opens TCP listeners (proxy + UI). Outbound traffic looks like any normal app.
+## Установка
 
-## Install on Keenetic
-
-1. Entware / OPKG must be installed.
-2. After you publish a GitHub release, run on the router:
+На роутере:
 
 ```sh
-# set your repo path if different
-export REPO=ARTJ1/keenetic-mtproto-main"
 curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh" | sh
 ```
 
-Installs:
-
-- binary → `/opt/sbin/keenetic-mtproto`
-- config → `/opt/etc/keenetic-mtproto/config.json`
-- service → `/opt/etc/init.d/S95keenetic-mtproto`
-
-Defaults:
-
-- Web UI: `http://<router-lan-ip>:7788` — login `admin` / `admin` (**change immediately**)
-- Proxy port: **8443** (avoid 80/443 used by Keenetic itself)
-
-3. In Keenetic UI: forward **TCP 8443** from WAN to the router (if you want remote friends to connect).
-4. Open the web UI → generate a secret → copy `tg://proxy` link → paste into Telegram.
-
-Service control:
+Закрепить конкретный релиз:
 
 ```sh
-/opt/etc/init.d/S95keenetic-mtproto start|stop|restart|status
+curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh" | VERSION=v1.0.6 sh
 ```
 
-## Config
+Скрипт положит:
+
+| Куда | Что |
+|------|-----|
+| `/opt/sbin/keenetic-mtproto` | бинарник |
+| `/opt/etc/keenetic-mtproto/config.json` | конфиг |
+| `/opt/etc/init.d/S95keenetic-mtproto` | сервис |
+
+Архитектура определяется автоматически (`uname -m`): `mips`, `mipsel`, `armv7`, `aarch64`, `x86_64`.
+
+## Первый запуск
+
+1. Открой в браузере (с домашней сети):  
+   `http://<IP-роутера>:7788`  
+   Логин / пароль по умолчанию: **`admin` / `admin`** — сразу смени в настройках.
+
+2. В панели сгенерируй **secret** и скопируй ссылку `tg://proxy…` (или QR).
+
+3. В Telegram: **Настройки → Данные и память → Прокси → Добавить прокси → MTProto**  
+   (или просто открой ссылку / отсканируй QR).
+
+Порт прокси по умолчанию: **8443** (не 80/443 — их занимает сам Keenetic).
+
+## Управление сервисом
+
+```sh
+/opt/etc/init.d/S95keenetic-mtproto start
+/opt/etc/init.d/S95keenetic-mtproto stop
+/opt/etc/init.d/S95keenetic-mtproto restart
+/opt/etc/init.d/S95keenetic-mtproto status
+```
+
+## Доступ с мобильного интернета (не через Wi‑Fi роутера)
+
+Панель (`:7788`) — только для LAN. Наружу её **не пробрасывай**.
+
+Чтобы Telegram работал вне дома:
+
+1. В веб-интерфейсе Keenetic: **проброс TCP 8443** с WAN на сам роутер.
+2. В панели прокси укажи **публичный IP или DDNS** в поле host (или «Detect public IP»).
+3. Заново скопируй / отсканируй `tg://proxy…` в Telegram.
+
+## Обновление
+
+В панели: **Updates → Check GitHub → Install & restart**  
+или снова запусти `install.sh` по SSH (как при установке).
+
+## Конфиг
+
+Файл: `/opt/etc/keenetic-mtproto/config.json`
 
 ```json
 {
@@ -72,50 +97,32 @@ Service control:
 }
 ```
 
-`upstream_mode`: `auto` (WS then TCP), `ws`, or `tcp`.
+Полезные поля:
 
-On censored networks prefer `auto` and optionally a Cloudflare Worker domain.  
-On a foreign VPS, `tcp` is usually enough.
+- `upstream_mode`: `auto` (сначала WS, потом TCP), `ws` или `tcp`  
+  На цензуре обычно `auto`; на зарубежном VPS часто хватает `tcp`.
+- `cfworker_domain` — домен Cloudflare Worker (опционально, если нужен WS/CF путь).
+- Пустые `web.username` / `web.password` — панель без логина (только в LAN).
 
-## Outside home Wi‑Fi (mobile internet)
-
-UI (:7788) is for LAN. Telegram proxy (:8443 by default) can be used from anywhere if you:
-
-1. Keenetic → port forwarding → TCP **8443** → this router  
-2. Put your **public IP / DDNS** into the share host field (or press «Detect public IP»)  
-3. Scan the QR / open `tg://proxy…` in Telegram  
-
-Do **not** forward the web UI port to the internet.
-
-In the panel there is also **Updates → Check GitHub → Install & restart** so you can upgrade without SSH.
-
-
-The panel HTML and JS are served **without** browser Basic Auth (Chrome breaks ES modules otherwise).
-API calls use a login form → `Authorization: Basic …` in sessionStorage.
-
-Leave `web.username` / `web.password` empty to keep the LAN panel open.
-
+После правок конфига:
 
 ```sh
-# UI + binary
-make build
-
-# Keenetic release binaries
-make release-local
+/opt/etc/init.d/S95keenetic-mtproto restart
 ```
 
-Requires Go 1.22+ and Node 20+.
+## Сборка из исходников (необязательно)
 
-Release assets include both `linux-mips_softfloat` (big-endian, `uname -m` = `mips`, e.g. EcoNet EN75xx) and `linux-mipsle_softfloat` (little-endian, `mipsel`, e.g. MT7621).
+Нужны Go 1.22+ и Node 20+.
 
-## Architecture
+```sh
+make build          # UI + бинарник
+make release-local  # архивы под Keenetic
+```
 
-- MTProto core extracted from [B4](https://github.com/daniellavrushin/b4) (`mtproto` package): fake-TLS, obfuscated2, WS / CF upstream.
-- **Not included:** transparent `mtproto-ws` bridge, NFQUEUE, routing tables.
-- Single static binary (`CGO_ENABLED=0`) with embedded React UI (`go:embed`).
+Релизные архивы: `linux-mips_softfloat` (big-endian, `uname -m = mips`) и `linux-mipsle_softfloat` (little-endian, `mipsel`).
 
-## License
+## Лицензия
 
-GPLv3 — derived from B4’s MTProto implementation. See [LICENSE](LICENSE).
+GPLv3 — на базе MTProto-кода [B4](https://github.com/daniellavrushin/b4). См. [LICENSE](LICENSE).  
+WS / CF пути вдохновлены [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
 
-Upstream inspiration for WS / CF paths: [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
