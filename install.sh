@@ -191,11 +191,12 @@ main() {
 	chmod +x "$bin"
 
 	# Sanity: ELF binary (reject HTML error pages / wrong downloads).
-	magic=$(od -An -tx1 -N4 "$bin" 2>/dev/null | tr -d ' \n')
-	case "$magic" in
-	7f454c46*) ;;
-	*) die "Downloaded file is not an ELF binary (got magic=$magic). Wrong arch URL or truncated download." ;;
-	esac
+	# BusyBox on Keenetic often lacks od -N / -tx1; use dd + cmp instead.
+	binsz=$(wc -c <"$bin" | tr -d ' ')
+	[ "$binsz" -gt 1000000 ] || die "binary too small (${binsz} bytes) — truncated archive?"
+	printf '\177ELF' >"$tmp/elfmagic"
+	dd if="$bin" of="$tmp/hdr" bs=1 count=4 2>/dev/null || die "cannot read binary header"
+	cmp -s "$tmp/elfmagic" "$tmp/hdr" || die "Downloaded file is not an ELF binary (${binsz} bytes). Wrong arch URL or truncated download."
 
 	# -version exists from v1.0.7+; older packages just print help/error — ignore.
 	if "$bin" -version >/tmp/kmt-ver.txt 2>/tmp/kmt-ver.err; then
