@@ -21,7 +21,7 @@ curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/i
 Закрепить конкретный релиз:
 
 ```sh
-curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh" | VERSION=v1.0.6 sh
+curl -fsSL "https://raw.githubusercontent.com/ARTJ1/keenetic-mtproto-main/main/install.sh" | VERSION=v1.0.9 sh
 ```
 
 Скрипт положит:
@@ -125,4 +125,3 @@ make release-local  # архивы под Keenetic
 
 GPLv3 — на базе MTProto-кода [B4](https://github.com/daniellavrushin/b4). См. [LICENSE](LICENSE).  
 WS / CF пути вдохновлены [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy).
-
