@@ -116,7 +116,38 @@ func TestPlanTransports_UnknownDC_NoKwsPlans(t *testing.T) {
 	}
 }
 
+func TestPlanTransports_SkipsNativeEdgeWhenDialHostCooled(t *testing.T) {
+	t.Cleanup(tcpResetState)
+	tcpRecordFailure(hostPort443(telegramWSEdgeIP))
+
+	cfg := &config.MTProtoConfig{UpstreamMode: "auto", CFProxyEnabled: false}
+	plans, err := planTransports(cfg, config.QueueConfig{IPv4Enabled: true}, 2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, s := range wsSNIs(plans) {
+		if strings.HasSuffix(s, ".web.telegram.org") {
+			t.Fatalf("cooled native edge must not produce kws plans, got %v", wsSNIs(plans))
+		}
+	}
+	if !hasTCP(plans) {
+		t.Fatalf("TCP fallback must remain after native WS is cooled")
+	}
+}
+
+func TestTransportPlan_NativeKwsShareCooldownKey(t *testing.T) {
+	dh := telegramWSEdgeIP
+	primary := transportPlan{kind: transportWS, sni: "kws2.web.telegram.org", dialHost: dh}
+	media := transportPlan{kind: transportWS, sni: "kws2-1.web.telegram.org", dialHost: dh}
+	want := hostPort443(dh)
+	if primary.cooldownKey() != want || media.cooldownKey() != want {
+		t.Fatalf("kws2 and kws2-1 must share cooldown key %s, got %q and %q", want, primary.cooldownKey(), media.cooldownKey())
+	}
+}
+
 func TestPlanTransports_AutoMode_AlwaysIncludesTCPFallback(t *testing.T) {
+	tcpResetState()
+	t.Cleanup(tcpResetState)
 	cfg := &config.MTProtoConfig{UpstreamMode: "auto"}
 	plans, err := planTransports(cfg, config.QueueConfig{IPv4Enabled: true}, 2)
 	if err != nil {

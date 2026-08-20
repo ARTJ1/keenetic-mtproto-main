@@ -343,6 +343,9 @@ func (p *wsPool) dialFresh(dc int) (*wsConn, error) {
 	plans := wsPlansForDC(dc, p.cfg)
 	var lastErr error
 	for _, pl := range plans {
+		if key := pl.cooldownKey(); key != "" && tcpAddrInCooldown(key) {
+			continue
+		}
 		host := pl.dialHost
 		if host == "" {
 			host = pl.sni
@@ -375,12 +378,14 @@ func wsPlansForDC(dc int, cfg *MTProtoUpstream) []transportPlan {
 	}
 	if wsEdgeServesDC(absDC) {
 		dh := wsNativeDialHost(override)
-		primary := transportPlan{kind: transportWS, dc: dc, sni: kwsHost(absDC, ""), dialHost: dh}
-		media := transportPlan{kind: transportWS, dc: dc, sni: kwsHost(absDC, "-1"), dialHost: dh}
-		if dc < 0 {
-			plans = append(plans, media, primary)
-		} else {
-			plans = append(plans, primary, media)
+		if !tcpAddrInCooldown(hostPort443(dh)) {
+			primary := transportPlan{kind: transportWS, dc: dc, sni: kwsHost(absDC, ""), dialHost: dh}
+			media := transportPlan{kind: transportWS, dc: dc, sni: kwsHost(absDC, "-1"), dialHost: dh}
+			if dc < 0 {
+				plans = append(plans, media, primary)
+			} else {
+				plans = append(plans, primary, media)
+			}
 		}
 	}
 	if cfg != nil && cfg.WSCustomDomain != "" {

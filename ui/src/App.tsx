@@ -903,7 +903,7 @@ export default function App() {
                   return (
                     <div key={i} className={`test-item ${ok ? "ok" : "bad"}`}>
                       <div className="who">
-                        {r?.mode || r?.name || r?.type || `result #${i + 1}`}
+                        {r?.transport || r?.mode || r?.name || r?.type || `result #${i + 1}`}
                         {r?.endpoint || r?.host ? ` · ${r.endpoint || r.host}` : ""}
                       </div>
                       <div>

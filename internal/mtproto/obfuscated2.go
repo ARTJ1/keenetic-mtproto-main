@@ -202,6 +202,33 @@ func (p transportPlan) describe() string {
 	}
 }
 
+// cooldownKey is the host:port we actually dial. Native kws2 and kws2-1 share
+// telegramWSEdgeIP, so one TCP timeout must skip the sibling instead of burning
+// another tcpDialTimeout (Telegram clients usually give up before 16s).
+func (p transportPlan) cooldownKey() string {
+	if p.kind == transportTCP {
+		return p.addr
+	}
+	host := p.dialHost
+	if host == "" {
+		host = p.sni
+	}
+	if host == "" {
+		return ""
+	}
+	return hostPort443(host)
+}
+
+func hostPort443(host string) string {
+	if host == "" {
+		return ""
+	}
+	if _, _, err := net.SplitHostPort(host); err == nil {
+		return host
+	}
+	return net.JoinHostPort(host, "443")
+}
+
 func planTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc int) ([]transportPlan, error) {
 	absDC := dc
 	if absDC < 0 {
@@ -243,12 +270,17 @@ func planTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc i
 	if wsMode && !wsBlacklisted {
 		if wsEdgeServesDC(absDC) && !cfg.BridgeSkipNativeEdge {
 			dh := wsNativeDialHost(cfg.WSEndpointHost)
-			primary := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d.web.telegram.org", absDC), dialHost: dh}
-			media := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d-1.web.telegram.org", absDC), dialHost: dh}
-			if dc < 0 {
-				plans = append(plans, media, primary)
+			edgeKey := hostPort443(dh)
+			if tcpAddrInCooldown(edgeKey) {
+				log.Debugf("%s DC %d native WS edge %s skipped (TCP cooldown)", tg(""), absDC, edgeKey)
 			} else {
-				plans = append(plans, primary, media)
+				primary := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d.web.telegram.org", absDC), dialHost: dh}
+				media := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d-1.web.telegram.org", absDC), dialHost: dh}
+				if dc < 0 {
+					plans = append(plans, media, primary)
+				} else {
+					plans = append(plans, primary, media)
+				}
 			}
 		}
 		if dst := workerDstIP(absDC); dst != "" {
@@ -334,6 +366,10 @@ func DialObfuscatedDCWithPool(cfg *config.MTProtoConfig, queueCfg config.QueueCo
 	wsTried := 0
 	wsRedirects := 0
 	for _, p := range plans {
+		if key := p.cooldownKey(); key != "" && tcpAddrInCooldown(key) {
+			log.Debugf("%s DC %d skip %s (%s in cooldown)", tag, dc, p.describe(), key)
+			continue
+		}
 		log.Debugf("%s DC %d dialing %s", tag, dc, p.describe())
 		start := time.Now()
 		var conn net.Conn
@@ -345,6 +381,11 @@ func DialObfuscatedDCWithPool(cfg *config.MTProtoConfig, queueCfg config.QueueCo
 		}
 		if derr != nil {
 			attempts = append(attempts, fmt.Sprintf("%s: %s", p.describe(), shortErr(derr)))
+			if isDialTimeout(derr) {
+				if key := p.cooldownKey(); key != "" {
+					tcpRecordFailure(key)
+				}
+			}
 			if p.kind == transportWS {
 				wsTried++
 				if isWSRedirect(derr) {
@@ -353,8 +394,6 @@ func DialObfuscatedDCWithPool(cfg *config.MTProtoConfig, queueCfg config.QueueCo
 				if p.cfBase != "" && wsRateLimited(derr) {
 					cfBalancerInst.penalize(p.cfBase, cfProxyDomainCooldown)
 				}
-			} else if isDialTimeout(derr) {
-				tcpRecordFailure(p.addr)
 			}
 			log.Debugf("%s DC %d %s failed after %dms: %v", tag, dc, p.describe(), time.Since(start).Milliseconds(), derr)
 			continue
@@ -448,9 +487,12 @@ func ProbeTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc 
 	if err != nil {
 		return nil, err
 	}
-	out := make([]TransportProbeResult, len(plans))
-	for i, p := range plans {
-		out[i] = probeOne(p, queueCfg.Mark, dc)
+	out := make([]TransportProbeResult, 0, len(plans))
+	for _, p := range plans {
+		if key := p.cooldownKey(); key != "" && tcpAddrInCooldown(key) {
+			continue
+		}
+		out = append(out, probeOne(p, queueCfg.Mark, dc))
 	}
 	return out, nil
 }
@@ -504,6 +546,9 @@ func dialOne(p transportPlan, mark uint) (net.Conn, error) {
 		dialer := net.Dialer{Timeout: tcpDialTimeout}
 		conn, err := dialer.Dial("tcp", p.addr)
 		if err != nil {
+			if isDialTimeout(err) {
+				tcpRecordFailure(p.addr)
+			}
 			return nil, err
 		}
 		if tc, ok := conn.(*net.TCPConn); ok {
