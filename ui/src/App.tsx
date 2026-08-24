@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import QRCode from "qrcode";
 import {
@@ -33,6 +33,44 @@ function Tip({ text }: { text: string }) {
   );
 }
 
+// Panel is http://router:7788 — Clipboard API is blocked outside a secure
+// context, so navigator.clipboard.writeText fails silently. execCommand on a
+// real textarea still works on LAN HTTP (and as a fallback on HTTPS).
+function copyViaTextarea(text: string): boolean {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.cssText =
+    "position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;opacity:0;";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (copyViaTextarea(text)) {
+    return true;
+  }
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // HTTP LAN / denied permission
+    }
+  }
+  return false;
+}
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const [cfg, setCfg] = useState<FileConfig | null>(null);
@@ -58,6 +96,8 @@ export default function App() {
   } | null>(null);
   const [testOpen, setTestOpen] = useState(false);
   const [testPayload, setTestPayload] = useState<{ dc?: number; results: any[] } | null>(null);
+  const [workerOpen, setWorkerOpen] = useState(false);
+  const workerCodeRef = useRef<HTMLTextAreaElement>(null);
 
   const toast = useCallback((kind: ToastKind, text: string) => {
     const id = Date.now() + Math.random();
@@ -137,16 +177,25 @@ export default function App() {
   }, [shareLink]);
 
   useEffect(() => {
-    if (!qrOpen && !testOpen) return;
+    if (!qrOpen && !testOpen && !workerOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setQrOpen(false);
         setTestOpen(false);
+        setWorkerOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [qrOpen, testOpen]);
+  }, [qrOpen, testOpen, workerOpen]);
+
+  useEffect(() => {
+    if (!workerOpen) return;
+    const el = workerCodeRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  }, [workerOpen]);
 
   const doLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -199,8 +248,25 @@ export default function App() {
   };
 
   const copyText = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    toast("ok", t("copied"));
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      toast("ok", t("copied"));
+      return;
+    }
+    toast("err", t("toast.copyFail"));
+  };
+
+  const openWorkerCode = () => {
+    setWorkerOpen(true);
+    // execCommand must run in the click tick; Clipboard API is blocked on
+    // http://192.168.x.x:7788 (not a secure context).
+    if (copyViaTextarea(CF_WORKER_SOURCE)) {
+      toast("ok", t("copied"));
+      return;
+    }
+    void copyToClipboard(CF_WORKER_SOURCE).then((ok) => {
+      toast(ok ? "ok" : "info", ok ? t("copied") : t("proxy.workerSelect"));
+    });
   };
 
   const openQrForSecret = (secret: Secret) => {
@@ -650,11 +716,7 @@ export default function App() {
               {t("proxy.cfWorkerHelp")}
             </p>
             <div className="actions" style={{ marginTop: 8 }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => copyText(CF_WORKER_SOURCE)}
-              >
+              <button type="button" className="btn" onClick={openWorkerCode}>
                 {t("proxy.copyWorker")}
               </button>
             </div>
@@ -883,6 +945,62 @@ export default function App() {
                 {t("share.openTelegram")}
               </a>
               <button type="button" className="btn" onClick={() => setQrOpen(false)}>
+                {t("close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {workerOpen ? (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setWorkerOpen(false);
+          }}
+        >
+          <div className="modal wide" role="dialog" aria-modal="true" aria-label={t("proxy.workerTitle")}>
+            <div className="modal-head">
+              <h3>{t("proxy.workerTitle")}</h3>
+              <button type="button" className="modal-close" onClick={() => setWorkerOpen(false)}>
+                ×
+              </button>
+            </div>
+            <p className="note" style={{ marginBottom: 10 }}>
+              {t("proxy.workerSelect")}
+            </p>
+            <textarea
+              ref={workerCodeRef}
+              className="code-box"
+              readOnly
+              spellCheck={false}
+              value={CF_WORKER_SOURCE}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <div className="actions">
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  const el = workerCodeRef.current;
+                  if (el) {
+                    el.focus();
+                    el.select();
+                    try {
+                      if (document.execCommand("copy")) {
+                        toast("ok", t("copied"));
+                        return;
+                      }
+                    } catch {
+                      /* fall through */
+                    }
+                  }
+                  void copyText(CF_WORKER_SOURCE);
+                }}
+              >
+                {t("copy")}
+              </button>
+              <button type="button" className="btn" onClick={() => setWorkerOpen(false)}>
                 {t("close")}
               </button>
             </div>

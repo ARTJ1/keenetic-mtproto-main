@@ -28,7 +28,8 @@
     "testFail": "Upstream failed",
     "ipOk": "Public IP set",
     "qrNeedSecret": "Generate a secret first",
-    "dcOk": "DC list refreshed"
+    "dcOk": "DC list refreshed",
+    "copyFail": "Clipboard blocked — select the code and copy it manually"
   },
   "tabs": {
     "connect": "Connect",
@@ -78,6 +79,8 @@
     "upstreamAuto": "Auto (WS → TCP)",
     "cfWorker": "Cloudflare Worker domain",
     "copyWorker": "Copy Worker code",
+    "workerTitle": "Cloudflare Worker code",
+    "workerSelect": "The code is selected. If it did not copy, press Ctrl+A / long-press Copy, then paste into Cloudflare → Edit code → Deploy.",
     "cfWorkerHelp": "A 404 on workers.dev means the Worker is dead. Cloudflare → Workers → Edit code → paste this script → Deploy → put name.account.workers.dev here.",
     "testHintWorker": "The shared CF pool is returning 503 and the Worker is 404. No AI needed: redeploy your Worker (button above) or use IPv6/TCP. Test again after Deploy.",
     "cfProxy": "Use shared CF proxy pool",
