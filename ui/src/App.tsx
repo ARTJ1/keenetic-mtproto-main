@@ -11,6 +11,7 @@ import {
   setAuth,
   tgProxyLink,
 } from "./api";
+import { CF_WORKER_SOURCE } from "./cfWorker";
 
 type Tab = "connect" | "proxy" | "access" | "system";
 type ToastKind = "ok" | "err" | "info";
@@ -571,7 +572,7 @@ export default function App() {
           <section className="card">
             <div className="card-head">
               <h2>{t("proxy.title")}</h2>
-              <Tip text={t("hint.upstream")} />
+              <Tip text={t("hint.upstream") + " " + t("hint.cfWorker")} />
             </div>
             <label className="check">
               <input
@@ -644,6 +645,18 @@ export default function App() {
                   }
                 />
               </label>
+            </div>
+            <p className="note" style={{ marginTop: 10 }}>
+              {t("proxy.cfWorkerHelp")}
+            </p>
+            <div className="actions" style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => copyText(CF_WORKER_SOURCE)}
+              >
+                {t("proxy.copyWorker")}
+              </button>
             </div>
             <label className="check" style={{ marginTop: 12 }}>
               <input
@@ -898,20 +911,30 @@ export default function App() {
               {(testPayload.results || []).length === 0 ? (
                 <p className="empty">{t("error")}</p>
               ) : (
-                testPayload.results.map((r: any, i: number) => {
-                  const ok = r?.ok === true;
-                  return (
-                    <div key={i} className={`test-item ${ok ? "ok" : "bad"}`}>
-                      <div className="who">
-                        {r?.transport || r?.mode || r?.name || r?.type || `result #${i + 1}`}
-                        {r?.endpoint || r?.host ? ` · ${r.endpoint || r.host}` : ""}
+                <>
+                  {!(testPayload.results || []).some((r: any) => r?.ok === true) &&
+                  (testPayload.results || []).some((r: any) =>
+                    /404|503/.test(String(r?.error || r?.message || ""))
+                  ) ? (
+                    <p className="note" style={{ marginBottom: 10 }}>
+                      {t("proxy.testHintWorker")}
+                    </p>
+                  ) : null}
+                  {testPayload.results.map((r: any, i: number) => {
+                    const ok = r?.ok === true;
+                    return (
+                      <div key={i} className={`test-item ${ok ? "ok" : "bad"}`}>
+                        <div className="who">
+                          {r?.transport || r?.mode || r?.name || r?.type || `result #${i + 1}`}
+                          {r?.endpoint || r?.host ? ` · ${r.endpoint || r.host}` : ""}
+                        </div>
+                        <div>
+                          {ok ? "OK" : r?.error || r?.message || JSON.stringify(r)}
+                        </div>
                       </div>
-                      <div>
-                        {ok ? "OK" : r?.error || r?.message || JSON.stringify(r)}
-                      </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </>
               )}
             </div>
             <div className="actions">

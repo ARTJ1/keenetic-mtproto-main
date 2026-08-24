@@ -300,10 +300,11 @@ func dialWS(host, sni, path string, timeout time.Duration, mark uint) (net.Conn,
 		path = "/apiws"
 	}
 	dialer := &net.Dialer{Timeout: timeout}
-	raw, err := dialer.Dial("tcp", net.JoinHostPort(host, "443"))
+	dest := hostPort443(host)
+	raw, err := dialer.Dial("tcp", dest)
 	if err != nil {
 		if isDialTimeout(err) {
-			tcpRecordFailure(net.JoinHostPort(host, "443"))
+			tcpRecordFailure(dest)
 		}
 		return nil, fmt.Errorf("tcp dial %s: %w", host, err)
 	}

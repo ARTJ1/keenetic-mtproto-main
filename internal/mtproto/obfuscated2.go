@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/keenetic-mtproto/keenetic-mtproto/internal/config"
@@ -285,6 +286,10 @@ func planTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc i
 		}
 		if dst := workerDstIP(absDC); dst != "" {
 			for _, wd := range workerDomains(cfg) {
+				if workerInCooldown(wd) {
+					log.Debugf("%s DC %d worker %s skipped (cooldown)", tg(""), absDC, wd)
+					continue
+				}
 				plans = append(plans, transportPlan{
 					kind:     transportWS,
 					dc:       dc,
@@ -305,10 +310,14 @@ func planTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc i
 		}
 		if cfg.CFProxyEnabled {
 			for _, base := range cfBalancerInst.domainsForDC(dc) {
+				sni := fmt.Sprintf("kws%d.%s", absDC, base)
+				if dc < 0 {
+					sni = fmt.Sprintf("kws%d-1.%s", absDC, base)
+				}
 				plans = append(plans, transportPlan{
 					kind:   transportWS,
 					dc:     dc,
-					sni:    fmt.Sprintf("kws%d.%s", absDC, base),
+					sni:    sni,
 					cfBase: base,
 				})
 			}
@@ -362,70 +371,7 @@ func DialObfuscatedDCWithPool(cfg *config.MTProtoConfig, queueCfg config.QueueCo
 		wsTimeout = wsDialTimeoutCooldown
 	}
 
-	var attempts []string
-	wsTried := 0
-	wsRedirects := 0
-	for _, p := range plans {
-		if key := p.cooldownKey(); key != "" && tcpAddrInCooldown(key) {
-			log.Debugf("%s DC %d skip %s (%s in cooldown)", tag, dc, p.describe(), key)
-			continue
-		}
-		log.Debugf("%s DC %d dialing %s", tag, dc, p.describe())
-		start := time.Now()
-		var conn net.Conn
-		var derr error
-		if p.kind == transportWS {
-			conn, derr = dialOneWS(p, queueCfg.Mark, wsTimeout)
-		} else {
-			conn, derr = dialOne(p, queueCfg.Mark)
-		}
-		if derr != nil {
-			attempts = append(attempts, fmt.Sprintf("%s: %s", p.describe(), shortErr(derr)))
-			if isDialTimeout(derr) {
-				if key := p.cooldownKey(); key != "" {
-					tcpRecordFailure(key)
-				}
-			}
-			if p.kind == transportWS {
-				wsTried++
-				if isWSRedirect(derr) {
-					wsRedirects++
-				}
-				if p.cfBase != "" && wsRateLimited(derr) {
-					cfBalancerInst.penalize(p.cfBase, cfProxyDomainCooldown)
-				}
-			}
-			log.Debugf("%s DC %d %s failed after %dms: %v", tag, dc, p.describe(), time.Since(start).Milliseconds(), derr)
-			continue
-		}
-		obfConn, oerr := completeObfuscation(conn, dc, protoTag)
-		if oerr != nil {
-			attempts = append(attempts, fmt.Sprintf("%s: %s", p.describe(), shortErr(oerr)))
-			conn.Close()
-			log.Debugf("%s DC %d obf init failed on %s: %v", tag, dc, p.describe(), oerr)
-			continue
-		}
-		if p.kind == transportWS {
-			wsRecordSuccess(dc)
-			if p.cfBase != "" {
-				if cfBalancerInst.pin(dc, p.cfBase) {
-					log.Infof("%s DC %d switched active CF domain to %s", tag, dc, p.cfBase)
-				}
-			}
-		} else {
-			tcpRecordSuccess(p.addr)
-		}
-		log.Infof("%s DC %d connected via %s in %dms", tag, dc, p.describe(), time.Since(start).Milliseconds())
-		return obfConn, p.describe(), nil
-	}
-
-	if wsTried > 0 {
-		wsRecordFailure(dc, wsRedirects == wsTried)
-	}
-	if len(attempts) == 0 {
-		return nil, "", fmt.Errorf("no transport available (all in cooldown or blacklisted)")
-	}
-	return nil, "", fmt.Errorf("all transports failed: %s", strings.Join(attempts, "; "))
+	return dialPlans(plans, queueCfg.Mark, dc, protoTag, wsTimeout, tag)
 }
 
 func isDialTimeout(err error) bool {
@@ -487,13 +433,18 @@ func ProbeTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc 
 	if err != nil {
 		return nil, err
 	}
-	out := make([]TransportProbeResult, 0, len(plans))
-	for _, p := range plans {
-		if key := p.cooldownKey(); key != "" && tcpAddrInCooldown(key) {
-			continue
-		}
-		out = append(out, probeOne(p, queueCfg.Mark, dc))
+	// Probe every planned path in parallel and ignore live-dial cooldowns so
+	// the UI shows the real picture (native WS / TCP / Worker / CF pool).
+	out := make([]TransportProbeResult, len(plans))
+	var wg sync.WaitGroup
+	for i, p := range plans {
+		wg.Add(1)
+		go func(i int, p transportPlan) {
+			defer wg.Done()
+			out[i] = probeOne(p, queueCfg.Mark, dc)
+		}(i, p)
 	}
+	wg.Wait()
 	return out, nil
 }
 
