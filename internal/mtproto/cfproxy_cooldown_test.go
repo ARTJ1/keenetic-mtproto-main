@@ -26,15 +26,15 @@ func TestBalancer_PenalizeCooldownSkipsDomain(t *testing.T) {
 	}
 }
 
-func TestBalancer_AllCooledDownFallsBackToAll(t *testing.T) {
+func TestBalancer_AllCooledDownReturnsEmpty(t *testing.T) {
 	b := newCFBalancer()
 	all := b.domainsForDC(2)
 	for _, d := range all {
 		b.penalize(d, cfProxyDomainCooldown)
 	}
 	got := b.domainsForDC(2)
-	if len(got) != len(all) {
-		t.Fatalf("when all cooled, expect fallback to all %d, got %d", len(all), len(got))
+	if len(got) != 0 {
+		t.Fatalf("when all cooled, expect empty so TCP/Worker can run, got %d: %v", len(got), got)
 	}
 }
 

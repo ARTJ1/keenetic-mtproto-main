@@ -117,6 +117,28 @@ func TestResolveDC_IPv6(t *testing.T) {
 	}
 }
 
+func TestResolveDCAll_IncludesBothFamilies(t *testing.T) {
+	addrs, err := ResolveDCAll(2, false, "")
+	if err != nil {
+		t.Fatalf("DC 2: %v", err)
+	}
+	if len(addrs) < 2 {
+		t.Fatalf("expected IPv4+IPv6 for DC 2, got %v", addrs)
+	}
+	if addrs[0][0] == '[' {
+		t.Fatalf("preferV6=false should list IPv4 first, got %v", addrs)
+	}
+	foundV6 := false
+	for _, a := range addrs {
+		if len(a) > 0 && a[0] == '[' {
+			foundV6 = true
+		}
+	}
+	if !foundV6 {
+		t.Fatalf("expected an IPv6 fallback in %v", addrs)
+	}
+}
+
 func TestResolveDC_Unknown(t *testing.T) {
 	_, err := ResolveDC(99, false, "")
 	if err == nil {

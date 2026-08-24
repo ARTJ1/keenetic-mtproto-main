@@ -217,11 +217,10 @@ func (b *cfBalancer) domainsForDC(dc int) []string {
 	if len(out) > 0 {
 		return out
 	}
-	// everything is cooled down: fall back to trying all (still better than no path)
-	if current != "" {
-		out = append(out, current)
-	}
-	return append(out, others...)
+	// All domains are in 429/503 cooldown. Return empty so the dialer can
+	// use Worker / IPv6 TCP instead of re-hammering the same dead pool on
+	// every client (Telegram gives up before 20 sequential 503s finish).
+	return nil
 }
 
 // penalize puts a CF-proxy domain into cooldown after a 429/503 so subsequent
@@ -353,6 +352,34 @@ func StartCFProxyRefresh(ctx interface{ Done() <-chan struct{} }, url string) {
 	cfRefreshOnce.Do(func() {
 		go runCFProxyRefreshLoop(ctx)
 	})
+}
+
+const cfEmergencyRefreshMin = 5 * time.Minute
+
+var cfEmergencyRefreshAt atomic.Int64
+
+// requestCFPoolRefresh re-fetches the public CF domain list after a total
+// pool failure. Rate-limited so a burst of dead clients cannot stampede GitHub.
+func requestCFPoolRefresh() {
+	now := time.Now().UnixNano()
+	prev := cfEmergencyRefreshAt.Load()
+	if prev != 0 && time.Duration(now-prev) < cfEmergencyRefreshMin {
+		return
+	}
+	if !cfEmergencyRefreshAt.CompareAndSwap(prev, now) {
+		return
+	}
+	go func() {
+		url := ""
+		if p := cfRefreshURL.Load(); p != nil {
+			url = *p
+		}
+		if err := cfBalancerInst.refreshFromURL(url); err != nil {
+			log.Debugf("CF proxy emergency refresh failed: %v", err)
+			return
+		}
+		log.Infof("CF proxy pool emergency refresh (%d domains)", cfBalancerInst.size())
+	}()
 }
 
 func runCFProxyRefreshLoop(ctx interface{ Done() <-chan struct{} }) {

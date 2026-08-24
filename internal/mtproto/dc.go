@@ -273,6 +273,11 @@ func ResolveDCAll(dc int, preferV6 bool, relay string) ([]string, error) {
 	if addr, ok := dcAddressesV4[absDC]; ok {
 		out = append(out, addr)
 	}
+	if !preferV6 {
+		if addr, ok := dcAddressesV6[absDC]; ok {
+			out = append(out, addr)
+		}
+	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("unknown DC %d", absDC)
 	}

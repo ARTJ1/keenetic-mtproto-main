@@ -404,6 +404,49 @@ func TestPlanTransports_MultipleWorkerDomains(t *testing.T) {
 	}
 }
 
+func TestPlanTransports_AutoIncludesIPv6TCP(t *testing.T) {
+	tcpResetState()
+	t.Cleanup(tcpResetState)
+	cfg := &config.MTProtoConfig{UpstreamMode: "auto", CFProxyEnabled: false}
+	plans, err := planTransports(cfg, config.QueueConfig{IPv4Enabled: true}, 2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var v4, v6 bool
+	for _, p := range plans {
+		if p.kind != transportTCP {
+			continue
+		}
+		if strings.HasPrefix(p.addr, "[") {
+			v6 = true
+		} else {
+			v4 = true
+		}
+	}
+	if !v4 || !v6 {
+		t.Fatalf("auto mode must try IPv4 and IPv6 TCP, got %+v", plans)
+	}
+}
+
+func TestPlanTransports_MediaCFUsesKwsMinus1(t *testing.T) {
+	t.Cleanup(func() { cfBalancerInst.updateDomainsList(defaultCFProxyDomains()) })
+	cfBalancerInst.updateDomainsList([]string{"testcf.co.uk"})
+	cfg := &config.MTProtoConfig{UpstreamMode: "ws", CFProxyEnabled: true}
+	plans, err := planTransports(cfg, config.QueueConfig{}, -2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, p := range plans {
+		if p.cfBase == "testcf.co.uk" && p.sni == "kws2-1.testcf.co.uk" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("media DC must use kwsN-1 on CF domains, got %v", wsSNIs(plans))
+	}
+}
+
 func TestPlanTransports_NoWorkerWhenUnset(t *testing.T) {
 	cfg := &config.MTProtoConfig{UpstreamMode: "ws"}
 	plans, err := planTransports(cfg, config.QueueConfig{}, 2)
