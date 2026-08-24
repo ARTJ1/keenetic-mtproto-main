@@ -377,6 +377,18 @@ th { color: var(--muted); font-weight: 550; font-size: 0.78rem; }
   animation: pop 0.2s ease;
 }
 .modal.wide { width: min(540px, 100%); }
+.code-box {
+  display: block;
+  width: 100%;
+  min-height: 42vh;
+  max-height: 52vh;
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre;
+  overflow: auto;
+}
 .modal h3 {
   margin: 0;
   font-size: 1.02rem;
