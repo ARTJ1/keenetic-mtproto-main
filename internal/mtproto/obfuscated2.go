@@ -269,21 +269,9 @@ func planTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc i
 		log.Debugf("%s DC %d WS plans skipped (blacklisted)", tg(""), dc)
 	}
 	if wsMode && !wsBlacklisted {
-		if wsEdgeServesDC(absDC) && !cfg.BridgeSkipNativeEdge {
-			dh := wsNativeDialHost(cfg.WSEndpointHost)
-			edgeKey := hostPort443(dh)
-			if tcpAddrInCooldown(edgeKey) {
-				log.Debugf("%s DC %d native WS edge %s skipped (TCP cooldown)", tg(""), absDC, edgeKey)
-			} else {
-				primary := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d.web.telegram.org", absDC), dialHost: dh}
-				media := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d-1.web.telegram.org", absDC), dialHost: dh}
-				if dc < 0 {
-					plans = append(plans, media, primary)
-				} else {
-					plans = append(plans, primary, media)
-				}
-			}
-		}
+		// Dedicated Worker first: on censored ISPs the native TG edge times
+		// out and the shared CF pool is mostly 503. Racing those against the
+		// Worker on Keenetic MIPS starves the one path that actually works.
 		if dst := workerDstIP(absDC); dst != "" {
 			for _, wd := range workerDomains(cfg) {
 				if workerInCooldown(wd) {
@@ -298,6 +286,21 @@ func planTransports(cfg *config.MTProtoConfig, queueCfg config.QueueConfig, dc i
 					wsPath:   fmt.Sprintf("/apiws?dst=%s&dc=%d", dst, absDC),
 					isWorker: true,
 				})
+			}
+		}
+		if wsEdgeServesDC(absDC) && !cfg.BridgeSkipNativeEdge {
+			dh := wsNativeDialHost(cfg.WSEndpointHost)
+			edgeKey := hostPort443(dh)
+			if tcpAddrInCooldown(edgeKey) {
+				log.Debugf("%s DC %d native WS edge %s skipped (TCP cooldown)", tg(""), absDC, edgeKey)
+			} else {
+				primary := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d.web.telegram.org", absDC), dialHost: dh}
+				media := transportPlan{kind: transportWS, dc: dc, sni: fmt.Sprintf("kws%d-1.web.telegram.org", absDC), dialHost: dh}
+				if dc < 0 {
+					plans = append(plans, media, primary)
+				} else {
+					plans = append(plans, primary, media)
+				}
 			}
 		}
 		if d := strings.TrimSpace(cfg.WSCustomDomain); d != "" {

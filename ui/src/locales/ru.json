@@ -19,8 +19,8 @@
   "hint": {
     "host": "Публичный IP или DDNS для ссылок вне домашнего Wi‑Fi. Не 192.168.x.x.",
     "secret": "Fake-TLS secret для MTProto в Telegram. Сгенерируй и раздай QR.",
-    "upstream": "Как роутер ходит до DC Telegram. На цензуре обычно Auto.",
-    "cfWorker": "Личный Cloudflare Worker обходит и блокировку IP, и 503 общего пула. 404 = Worker удалён или без /apiws — вставь код из панели и Deploy.",
+    "upstream": "Как роутер ходит до DC Telegram. На цензуре: Auto + свой Worker. Worker пробуется первым.",
+    "cfWorker": "Личный Cloudflare Worker — основной обход, если IP Telegram режутся. 404 = нет /apiws: вставь код из панели и Deploy.",
     "update": "Скачает релиз с GitHub и перезапустит сервис. SSH не нужен."
   },
   "toast": {
@@ -81,8 +81,9 @@
     "copyWorker": "Скопировать код Worker",
     "workerTitle": "Код Cloudflare Worker",
     "workerSelect": "Код выделен. Если в буфер не попало — Ctrl+A / долгий тап и «Копировать», потом вставь в Cloudflare → Edit code → Deploy.",
-    "cfWorkerHelp": "404 на workers.dev значит, что Worker мёртвый. Cloudflare → Workers → Edit code → вставь этот скрипт → Deploy → сюда домен вида name.account.workers.dev.",
-    "testHintWorker": "Общий CF-пул сейчас 503, а Worker — 404. Это не «нужен ИИ»: нужен свой живой Worker (кнопка выше) или IPv6/TCP. После Deploy снова нажми «Проверить».",
+    "cfWorkerHelp": "Если задан — Telegram идёт через него в первую очередь. 404 = Worker мёртвый: Cloudflare → Workers → Edit code → вставь скрипт → Deploy → сюда name.account.workers.dev.",
+    "testHintWorker": "Нет живого пути: общий CF-пул 503, а Worker 404/недоступен. Залей код Worker кнопкой выше и снова нажми «Проверить».",
+    "testHintPartial": "Есть живой путь (обычно свой Worker). Красные timeout и 503 — запасные маршруты, провайдер их режет. Telegram должен ходить через OK.",
     "cfProxy": "Общий пул CF proxy",
     "dcRelay": "DC relay (host:port)",
     "test": "Проверить upstream",

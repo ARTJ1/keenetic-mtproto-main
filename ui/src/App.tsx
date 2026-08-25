@@ -1030,15 +1030,25 @@ export default function App() {
                 <p className="empty">{t("error")}</p>
               ) : (
                 <>
-                  {!(testPayload.results || []).some((r: any) => r?.ok === true) &&
-                  (testPayload.results || []).some((r: any) =>
-                    /404|503/.test(String(r?.error || r?.message || ""))
-                  ) ? (
-                    <p className="note" style={{ marginBottom: 10 }}>
-                      {t("proxy.testHintWorker")}
-                    </p>
-                  ) : null}
-                  {testPayload.results.map((r: any, i: number) => {
+                  {(() => {
+                    const rows = testPayload.results || [];
+                    const anyOk = rows.some((r: any) => r?.ok === true);
+                    const hint = anyOk
+                      ? t("proxy.testHintPartial")
+                      : rows.some((r: any) =>
+                          /404|503/.test(String(r?.error || r?.message || ""))
+                        )
+                        ? t("proxy.testHintWorker")
+                        : "";
+                    return hint ? (
+                      <p className="note" style={{ marginBottom: 10 }}>
+                        {hint}
+                      </p>
+                    ) : null;
+                  })()}
+                  {[...(testPayload.results || [])]
+                    .sort((a: any, b: any) => Number(!!b?.ok) - Number(!!a?.ok))
+                    .map((r: any, i: number) => {
                     const ok = r?.ok === true;
                     return (
                       <div key={i} className={`test-item ${ok ? "ok" : "bad"}`}>

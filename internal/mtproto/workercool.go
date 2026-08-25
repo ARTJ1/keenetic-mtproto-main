@@ -14,6 +14,9 @@ const (
 	// the user can redeploy without every Telegram retry burning a handshake.
 	workerNotFoundCooldown  = 30 * time.Minute
 	workerRateLimitCooldown = 60 * time.Second
+	// Skip a Worker that timed out so the next client can use the CF pool
+	// instead of burning another 8s handshake. Short: a blip should recover.
+	workerDialTimeoutCooldown = 30 * time.Second
 )
 
 var (

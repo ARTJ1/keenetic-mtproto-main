@@ -25,12 +25,24 @@ export default {
 		}
 
 		const dst = url.searchParams.get("dst");
+		if (!dst) {
+			return new Response("missing dst", { status: 400 });
+		}
+
+		const socket = connect({ hostname: dst, port: 443 });
+		try {
+			if (socket.opened) {
+				await socket.opened;
+			}
+		} catch {
+			return new Response("upstream connect failed", { status: 502 });
+		}
+
 		const pair = new WebSocketPair();
 		const client = pair[0];
 		const server = pair[1];
 		server.accept();
 
-		const socket = connect({ hostname: dst, port: 443 });
 		const tcpReader = socket.readable.getReader();
 		const tcpWriter = socket.writable.getWriter();
 
