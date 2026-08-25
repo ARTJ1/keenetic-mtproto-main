@@ -12,8 +12,19 @@ import (
 )
 
 // transportRaceWidth is how many upstreams we try at once on Keenetic.
-// Wide enough to find a live CF/Worker path in one RTT; narrow enough for MIPS.
+// Wide enough to find a live CF path in one RTT; narrow enough for MIPS.
 const transportRaceWidth = 4
+
+// leadingWorkerCount is how many dedicated Worker plans sit at the front of
+// the list. Those are dialed as their own batch so a flaky public CF domain
+// or a blackholed native WS edge cannot "win" the race over the user's Worker.
+func leadingWorkerCount(plans []transportPlan) int {
+	n := 0
+	for n < len(plans) && plans[n].isWorker {
+		n++
+	}
+	return n
+}
 
 func recordPlanFailure(p transportPlan, err error) {
 	if err == nil {
@@ -34,6 +45,8 @@ func recordPlanFailure(p transportPlan, err error) {
 			noteWorkerNotFound(p.sni)
 		case wsRateLimited(err):
 			workerPenalize(p.sni, workerRateLimitCooldown)
+		case isDialTimeout(err):
+			workerPenalize(p.sni, workerDialTimeoutCooldown)
 		}
 		return
 	}
@@ -100,7 +113,18 @@ func dialPlans(plans []transportPlan, mark uint, dc int, protoTag uint32, wsTime
 		}
 	}
 
-	for i := 0; i < len(ready); i += transportRaceWidth {
+	i := 0
+	if n := leadingWorkerCount(ready); n > 0 {
+		obf, desc, fails := raceDialBatch(ready[:n], mark, dc, protoTag, wsTimeout, tag)
+		for _, f := range fails {
+			addAttempt(f.p, f.err)
+		}
+		if obf != nil {
+			return obf, desc, nil
+		}
+		i = n
+	}
+	for ; i < len(ready); i += transportRaceWidth {
 		end := i + transportRaceWidth
 		if end > len(ready) {
 			end = len(ready)

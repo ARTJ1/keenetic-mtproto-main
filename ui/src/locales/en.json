@@ -19,8 +19,8 @@
   "hint": {
     "host": "Public IP or DDNS for links outside your Wi‑Fi. Not 192.168.x.x.",
     "secret": "Fake-TLS secret for Telegram MTProto. Generate, then share QR.",
-    "upstream": "How this router reaches Telegram DCs. Auto is best on censored networks.",
-    "cfWorker": "Your own Cloudflare Worker bypasses blocked Telegram IPs and the shared CF pool 503s. 404 means the Worker is gone or has no /apiws — paste the panel script and Deploy.",
+    "upstream": "How this router reaches Telegram DCs. On censorship use Auto + your Worker. The Worker is tried first.",
+    "cfWorker": "Your Cloudflare Worker is the main bypass when Telegram IPs are blocked. 404 = missing /apiws — paste the panel script and Deploy.",
     "update": "Downloads a GitHub release and restarts the service. No SSH needed."
   },
   "toast": {
@@ -81,8 +81,9 @@
     "copyWorker": "Copy Worker code",
     "workerTitle": "Cloudflare Worker code",
     "workerSelect": "The code is selected. If it did not copy, press Ctrl+A / long-press Copy, then paste into Cloudflare → Edit code → Deploy.",
-    "cfWorkerHelp": "A 404 on workers.dev means the Worker is dead. Cloudflare → Workers → Edit code → paste this script → Deploy → put name.account.workers.dev here.",
-    "testHintWorker": "The shared CF pool is returning 503 and the Worker is 404. No AI needed: redeploy your Worker (button above) or use IPv6/TCP. Test again after Deploy.",
+    "cfWorkerHelp": "When set, Telegram uses it first. 404 = Worker is dead: Cloudflare → Workers → Edit code → paste the script → Deploy → put name.account.workers.dev here.",
+    "testHintWorker": "No live path: the shared CF pool is 503 and the Worker is 404/unreachable. Paste the Worker script (button above), Deploy, then test again.",
+    "testHintPartial": "A live path exists (usually your Worker). Red timeout/503 lines are fallbacks your ISP blocks. Telegram should use the OK one.",
     "cfProxy": "Use shared CF proxy pool",
     "dcRelay": "DC relay (host:port)",
     "test": "Test upstream",

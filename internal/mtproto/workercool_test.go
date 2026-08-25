@@ -35,6 +35,22 @@ func TestWorkerCooldown_Expires(t *testing.T) {
 	}
 }
 
+func TestWorkerDialTimeout_Penalizes(t *testing.T) {
+	t.Cleanup(workerResetState)
+	t.Cleanup(tcpResetState)
+	p := transportPlan{kind: transportWS, isWorker: true, sni: "slow.user.workers.dev", dialHost: "slow.user.workers.dev"}
+	recordPlanFailure(p, &timeoutErr{})
+	if !workerInCooldown("slow.user.workers.dev") {
+		t.Fatal("dial timeout should put Worker into cooldown")
+	}
+}
+
+type timeoutErr struct{}
+
+func (timeoutErr) Error() string   { return "i/o timeout" }
+func (timeoutErr) Timeout() bool   { return true }
+func (timeoutErr) Temporary() bool { return true }
+
 func TestIsWSNotFound(t *testing.T) {
 	if !isWSNotFound(&wsHandshakeError{statusCode: 404, statusLine: "404 Not Found"}) {
 		t.Fatal("404 should be not-found")

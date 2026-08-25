@@ -343,8 +343,8 @@ func TestPlanTransports_WorkerForDC2BeforeCFPool(t *testing.T) {
 	if workerIdx == -1 {
 		t.Fatal("expected a worker plan for DC2")
 	}
-	if edgeIdx == -1 || workerIdx < edgeIdx {
-		t.Errorf("worker (%d) should come after native edge (%d)", workerIdx, edgeIdx)
+	if edgeIdx != -1 && workerIdx > edgeIdx {
+		t.Errorf("worker (%d) should come before native edge (%d)", workerIdx, edgeIdx)
 	}
 	if cfIdx != -1 && workerIdx > cfIdx {
 		t.Errorf("worker (%d) should come before shared CF pool (%d)", workerIdx, cfIdx)
@@ -459,3 +459,42 @@ func TestPlanTransports_NoWorkerWhenUnset(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanTransports_WorkerIsFirstPlan(t *testing.T) {
+	t.Cleanup(workerResetState)
+	t.Cleanup(tcpResetState)
+	cfg := &config.MTProtoConfig{
+		UpstreamMode:   "auto",
+		CFWorkerDomain: "mine.user.workers.dev",
+		CFProxyEnabled: true,
+	}
+	plans, err := planTransports(cfg, config.QueueConfig{IPv4Enabled: true}, 2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(plans) == 0 || !plans[0].isWorker {
+		t.Fatalf("configured Worker must be the first plan, got %+v", plans)
+	}
+	if leadingWorkerCount(plans) != 1 {
+		t.Fatalf("expected exactly 1 leading worker, got %d in %+v", leadingWorkerCount(plans), plans)
+	}
+}
+
+func TestLeadingWorkerCount(t *testing.T) {
+	if leadingWorkerCount(nil) != 0 {
+		t.Fatal("empty plans")
+	}
+	plans := []transportPlan{
+		{isWorker: true, sni: "a.workers.dev"},
+		{isWorker: true, sni: "b.workers.dev"},
+		{kind: transportWS, sni: "kws2.web.telegram.org"},
+		{kind: transportTCP, addr: "1.2.3.4:443"},
+	}
+	if n := leadingWorkerCount(plans); n != 2 {
+		t.Fatalf("got %d want 2", n)
+	}
+	if n := leadingWorkerCount(plans[2:]); n != 0 {
+		t.Fatalf("no leading worker, got %d", n)
+	}
+}
+
